@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MoCap Web — CECAPE</title>
+
+<!-- ── SEO básico ────────────────────────────────────── -->
+  <meta name="description"        content="Sistema de captura de movimentos — CECAPE Dra. Zilda Arns">
+  <meta name="author"             content="CECAPE Dra. Zilda Arns — São Caetano do Sul">
+  <meta name="robots"             content="noindex, nofollow">
+  <meta name="theme-color"        content="#0b1220">
+  <meta name="color-scheme"       content="dark">
+  <meta name="application-name"   content="CECAPE — MocapWeb">
+  <meta name="generator"          content="Sistema de captura de movimentos faciais e corporais — CECAPE Dra. Zilda Arns v2">
+
+  <!-- ── Open Graph ───── -->
+  <meta property="og:type"        content="website">
+  <meta property="og:site_name"   content="CECAPE — MocaWeb">
+  <meta property="og:title"       content="Captura de movimentos">
+  <meta property="og:description" content="Sistema de captura de movimentos faciais e corporais — CECAPE Dra. Zilda Arns">
+  <meta property="og:url"         content="https://cecapescs.com.br/mocapweb/">
+  <meta property="og:image"       content="https://cecapescs.com.br/sist_reserv/reservas-estudio/assets/images/og-image-mocap.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height"content="630">
+  <meta property="og:locale"      content="pt_BR">
+
+  <!-- ── Twitter Card ──────────────────────────────────── -->
+  <meta name="twitter:card"        content="summary_large_image">
+  <meta name="twitter:title"       content="CECAPE - MocapWeb">
+  <meta name="twitter:description" content="Sistema de captura de movimentos faciais e corporais — CECAPE Dra. Zilda Arns">
+  <meta name="twitter:image"       content="https://cecapescs.com.br/sist_reserv/reservas-estudio/assets/images/og-image-mocap.png">
+
+  <!-- ── Favicons ─────────────────────────────────────── -->
+  <link rel="icon"             type="image/x-icon"  href="https://cecapescs.com.br/proj/cecape-palavras/assets/img/Logo-CECAPE.png">
+  <link rel="icon"             type="image/png"     sizes="32x32"   href="https://cecapescs.com.br/sist_reserv/reservas-estudio/assets/images/favicon-32.png">
+  <link rel="icon"             type="image/png"     sizes="16x16"   href="https://cecapescs.com.br/sist_reserv/reservas-estudio/assets/images/favicon-16.png">
+  <link rel="apple-touch-icon"                      sizes="180x180" href="https://cecapescs.com.br/sist_reserv/reservas-estudio/assets/images/apple-touch-icon.png">
+  <link rel="manifest"                              href="https://cecapescs.com.br/sist_reserv/reservas-estudio/assets/site.webmanifest">
+  <link rel="mask-icon"                             href="https://cecapescs.com.br/sist_reserv/reservas-estudio/assets/images/safari-pinned-tab.svg" color="#3b82f6">
+  <meta name="msapplication-TileColor" content="#0b1220">
+
+<style>
+  :root {
+    --bg: #0a0c10;
+    --surface: radial-gradient(ellipse at 30% 40%, rgba(29,78,216,.18) 0%, transparent 60%),
+              radial-gradient(ellipse at 70% 70%, rgba(6,182,212,.12) 0%, transparent 50%);
+    --surface2: #1a1f2b;
+    --border: rgba(255,255,255,0.08);
+    --accent: #00e5a0;
+    --accent2: #7b5ea7;
+    --text: #e8eaf0;
+    --text2: #8890a4;
+    --red: #ff4a6e;
+    --yellow: #ffc947;
+    --font: 'Inter', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  /* Tela travada em 100% da janela — sem barra de rolagem.
+     header e footer são fixos; .main ocupa todo o restante. */
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 24px;
+    border-bottom: 1px solid var(--border);
+    background: #0b243d;
+    min-height: 52px;
+    flex-shrink: 0;
+  }
+
+  /* ── Logos no header ─────────────────────────────── */
+  .header-logos {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .header-logos img {
+    height: 34px;
+    width: auto;
+    object-fit: contain;
+    display: block;
+  }
+  .header-logos .logo-divider {
+    width: 1px;
+    height: 28px;
+    background: rgba(255,255,255,0.15);
+    flex-shrink: 0;
+  }
+  .header-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+  }
+  header h1 {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.2px;
+    white-space: nowrap;
+  }
+  header h1 span { color: var(--accent); }
+  .badge {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 100px;
+    background: rgba(0,229,160,0.12);
+    color: var(--accent);
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--text2);
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+  .status-dot.live { background: var(--red); box-shadow: 0 0 6px var(--red); animation: pulse 1.5s infinite; }
+  .status-dot.tracking { background: var(--accent); box-shadow: 0 0 6px var(--accent); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .status-label { font-size: 12px; color: var(--text2); margin-left: 6px; white-space: nowrap; }
+
+  .main { display: flex; flex: 1; overflow: hidden; min-height: 0; }
+
+  .viewport {
+    flex: 1;
+    position: relative;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    min-width: 0;
+    min-height: 0;
+  }
+  /* object-fit: contain garante que o corpo INTEIRO apareça
+     (o "cover" antigo cortava cabeça/pés para preencher a tela). */
+  #videoEl {
+    width: 100%; height: 100%;
+    object-fit: contain;
+    transform: scaleX(-1);
+    display: block;
+    background: #000;
+  }
+  #overlayCanvas {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+  }
+  .viewport-overlay {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    border: 1px solid var(--border);
+  }
+  .corner { position: absolute; width: 20px; height: 20px; }
+  .corner.tl { top: 12px; left: 12px; border-top: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+  .corner.tr { top: 12px; right: 12px; border-top: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+  .corner.bl { bottom: 12px; left: 12px; border-bottom: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+  .corner.br { bottom: 12px; right: 12px; border-bottom: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+  .hud-fps {
+    position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
+    font-size: 11px; color: var(--accent); font-weight: 600; letter-spacing: 1px;
+    background: rgba(0,0,0,0.5); padding: 3px 10px; border-radius: 100px;
+    backdrop-filter: blur(4px);
+  }
+  .hud-conf {
+    position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+    font-size: 11px; color: var(--text2); letter-spacing: 0.5px;
+    background: rgba(0,0,0,0.5); padding: 3px 10px; border-radius: 100px;
+  }
+  .viewport-btns {
+    position: absolute; top: 14px; right: 14px;
+    display: flex; gap: 8px; z-index: 5;
+  }
+  .viewport-btn {
+    background: rgba(0,0,0,0.55); border: 1px solid rgba(255,255,255,0.15);
+    color: #e8eaf0; border-radius: 7px; padding: 5px 10px;
+    font-size: 11px; font-weight: 600; cursor: pointer; letter-spacing: 0.3px;
+  }
+  .viewport-btn:hover { background: rgba(0,0,0,0.75); border-color: rgba(255,255,255,0.3); }
+  /* Barra REC flutuante dentro do viewport (útil em tela cheia) */
+  .rec-float {
+    position: absolute; bottom: 18px; right: 18px; z-index: 6;
+    display: none; align-items: center; gap: 10px;
+    background: rgba(10,12,16,0.85); border: 1px solid rgba(255,74,110,0.4);
+    border-radius: 10px; padding: 8px 12px; backdrop-filter: blur(6px);
+  }
+  .rec-float.on { display: flex; }
+  .rec-float .rec-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--red); animation: pulse 1s infinite; }
+  .rec-float span { font-size: 12px; font-family: monospace; color: var(--red); font-weight: 700; }
+  .rec-float button {
+    background: var(--red); color: #fff; border: none; border-radius: 7px;
+    padding: 6px 12px; font-size: 11px; font-weight: 700; cursor: pointer;
+  }
+  .placeholder {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 16px; color: var(--text2);
+    background: var(--surface);
+  }
+  .placeholder svg { width: 48px; height: 48px; opacity: 0.3; }
+  .placeholder p { font-size: 14px; }
+  .sidebar {
+    width: 280px;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+  .panel {
+    border-bottom: 1px solid var(--border);
+    padding: 14px 16px;
+  }
+  .panel-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text2);
+    margin-bottom: 12px;
+  }
+  .btn {
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+  }
+  .btn-primary { background: var(--accent); color: #0a0c10; }
+  .btn-primary:hover { filter: brightness(1.1); }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { background: rgba(255,255,255,0.07); }
+  .btn-danger { background: rgba(255,74,110,0.15); color: var(--red); border: 1px solid rgba(255,74,110,0.3); }
+  .btn-danger:hover { background: rgba(255,74,110,0.25); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; filter: none; }
+  .btn + .btn { margin-top: 8px; }
+  .toggle-group { display: flex; gap: 8px; }
+  .toggle-btn {
+    flex: 1; padding: 7px 10px; border-radius: 6px; font-size: 12px; font-weight: 600;
+    cursor: pointer; border: 1px solid var(--border); background: transparent;
+    color: var(--text2); transition: all 0.15s;
+  }
+  .toggle-btn.active { background: rgba(0,229,160,0.12); color: var(--accent); border-color: rgba(0,229,160,0.3); }
+  .range-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+  .range-row label { font-size: 12px; color: var(--text2); flex: 1; }
+  .range-row input[type=range] { width: 80px; accent-color: var(--accent); }
+  .range-row span { font-size: 12px; color: var(--text); min-width: 28px; text-align: right; }
+  .sel {
+    width: 100%; background: var(--surface2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 7px 10px; font-size: 12px;
+  }
+  .keypoints-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .kp-item { display: flex; align-items: center; gap: 6px; background: var(--surface2); border-radius: 6px; padding: 6px 8px; }
+  .kp-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .kp-label { font-size: 11px; color: var(--text2); flex: 1; }
+  .kp-val { font-size: 11px; color: var(--text); font-family: monospace; }
+  .chart-wrap { background: var(--surface2); border-radius: 8px; padding: 10px; margin-top: 4px; }
+  #angleChart { width: 100%; height: 120px; display: block; }
+  .angle-readout { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
+  .angle-card { background: var(--surface2); border-radius: 8px; padding: 10px; text-align: center; }
+  .angle-card .val { font-size: 22px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .angle-card .lbl { font-size: 10px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+  .rec-indicator {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 12px; background: rgba(255,74,110,0.1);
+    border-radius: 8px; border: 1px solid rgba(255,74,110,0.25); margin-top: 8px;
+  }
+  .rec-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--red); animation: pulse 1s infinite; }
+  .rec-text { font-size: 12px; color: var(--red); font-weight: 600; }
+  .rec-timer { font-size: 12px; color: var(--text2); margin-left: auto; font-family: monospace; }
+  .rec-indicator.hidden { display: none; }
+  .export-row { display: flex; gap: 8px; margin-top: 8px; }
+  .export-row .btn { flex: 1; font-size: 12px; padding: 8px; }
+  footer {
+    padding: 8px 24px; border-top: 1px solid var(--border);
+    background: var(--surface); display: flex; align-items: center;
+    gap: 16px; font-size: 11px; color: var(--text2);
+    flex-shrink: 0;
+  }
+  footer span { display: flex; align-items: center; gap: 5px; }
+  footer .dot { width: 6px; height: 6px; border-radius: 50%; }
+  footer .dot.ok { background: var(--accent); }
+  footer .dot.warn { background: var(--yellow); }
+  #loadingOverlay {
+    position: fixed; inset: 0; background: var(--bg);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 16px; z-index: 999;
+  }
+  .spinner {
+    width: 40px; height: 40px; border: 3px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loadingOverlay p { font-size: 14px; color: var(--text2); }
+  #loadingOverlay small { font-size: 12px; color: var(--text2); opacity: 0.5; }
+  #loadingOverlay.hidden { display: none; }
+
+  /* Loading logos */
+  .loading-logos {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 8px;
+  }
+  .loading-logos img { height: 36px; width: auto; object-fit: contain; opacity: 0.7; }
+  .loading-logos .logo-divider { width: 1px; height: 30px; background: rgba(255,255,255,0.15); }
+
+  /* Em tela cheia o viewport toma o monitor inteiro */
+  .viewport:fullscreen { width: 100vw; height: 100vh; }
+
+  @media (max-width: 700px) {
+    .main { flex-direction: column; }
+    .sidebar { width: 100%; border-left: none; border-top: 1px solid var(--border); max-height: 45vh; }
+    .header-logos img { height: 26px; }
+    header h1 { font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="loadingOverlay">
+  <div class="loading-logos">
+    <img src="https://cecapescs.com.br/proj/cecape-palavras/assets/img/Logo-Prefeitura---SEEDUC.png"
+         alt="SEEDUC"
+         onerror="this.style.display='none'">
+    <div class="logo-divider"></div>
+    <img src="https://cecapescs.com.br/proj/cecape-palavras/assets/img/Logo-CECAPE.png"
+         alt="CECAPE"
+         onerror="this.style.display='none'">
+  </div>
+  <div class="spinner"></div>
+  <p id="loadingMsg">Carregando modelo de pose...</p>
+  <small id="loadingDetail">MediaPipe Pose Landmarker (multi-pessoa) · Aguarde, pode demorar na primeira vez</small>
+  <div style="margin-top:16px; display:flex; flex-direction:column; gap:6px; width:260px;">
+    <div style="display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text2);">
+      <span id="step1icon">⏳</span> <span id="step1txt">Pose Landmarker (multi-pessoa)</span>
+    </div>
+    <div style="display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text2);">
+      <span id="step2icon">⏸</span> <span id="step2txt">Face Landmarker</span>
+    </div>
+  </div>
+  <button id="btnSkipFace" onclick="skipFaceMesh()" style="display:none; margin-top:20px; background:rgba(255,255,255,0.07); border:1px solid var(--border); color:var(--text2); border-radius:8px; padding:8px 18px; font-size:12px; cursor:pointer;">
+    Pular Face Landmarker e continuar sem expressões
+  </button>
+</div>
+
+<header>
+  <!-- Logos SEEDUC + CECAPE -->
+  <div class="header-logos">
+    <img src="https://cecapescs.com.br/proj/cecape-palavras/assets/img/Logo-Prefeitura---SEEDUC.png"
+         alt="SEEDUC"
+         title="Secretaria de Educação — São Caetano do Sul"
+         onerror="this.style.display='none'">
+    <div class="logo-divider"></div>
+    <img src="https://cecapescs.com.br/proj/cecape-palavras/assets/img/Logo-CECAPE.png"
+         alt="CECAPE Dra. Zilda Arns"
+         title="CECAPE Dra. Zilda Arns"
+         onerror="this.style.display='none'">
+    <div class="logo-divider"></div>
+  </div>
+
+  <!-- Título e badge -->
+  <div class="header-title">
+    <h1>Mocap<span>Web</span> CECAPE</h1>
+    <span class="badge">Multi-Pessoa</span>
+  </div>
+
+  <span class="status-dot" id="statusDot"></span>
+  <span class="status-label" id="statusLabel">Aguardando câmera</span>
+</header>
+
+<div class="main">
+  <div class="viewport" id="viewport">
+    <div class="placeholder" id="placeholder">
+      <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="4" y="10" width="40" height="28" rx="4" stroke="currentColor" stroke-width="2"/>
+        <circle cx="24" cy="24" r="6" stroke="currentColor" stroke-width="2"/>
+        <circle cx="24" cy="24" r="2" fill="currentColor"/>
+      </svg>
+      <p>Clique em "Iniciar câmera" para começar</p>
+    </div>
+    <video id="videoEl" autoplay playsinline muted style="display:none;"></video>
+    <canvas id="overlayCanvas"></canvas>
+    <canvas id="recordCanvas" style="display:none;"></canvas>
+    <div class="viewport-overlay">
+      <div class="corner tl"></div>
+      <div class="corner tr"></div>
+      <div class="corner bl"></div>
+      <div class="corner br"></div>
+    </div>
+    <div class="hud-fps" id="hudFps" style="display:none;">-- FPS</div>
+    <div class="hud-conf" id="hudConf" style="display:none;">Confiança: --</div>
+    <div class="viewport-btns">
+      <button id="btnToggleVideo" class="viewport-btn" onclick="toggleVideoVisibility()" style="display:none;">
+        <span id="btnToggleVideoLabel">Ocultar vídeo</span>
+      </button>
+      <button id="btnFullscreen" class="viewport-btn" onclick="toggleFullscreen()" title="Tela cheia (F ou duplo clique)">⛶ Tela cheia</button>
+    </div>
+    <!-- Barra REC flutuante (visível também em tela cheia) -->
+    <div class="rec-float" id="recFloat">
+      <div class="rec-dot"></div>
+      <span id="recFloatTimer">00:00</span>
+      <button onclick="stopRecFromFloat()">⏹ Parar</button>
+    </div>
+  </div>
+
+  <aside class="sidebar">
+    <div class="panel">
+      <div class="panel-title">Câmera</div>
+      <button class="btn btn-primary" id="btnStart">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><polygon points="3,2 11,7 3,12" fill="currentColor"/></svg>
+        Iniciar câmera
+      </button>
+      <button class="btn btn-secondary" id="btnStop" disabled>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="2" y="2" width="4" height="10" fill="currentColor" rx="1"/><rect x="8" y="2" width="4" height="10" fill="currentColor" rx="1"/></svg>
+        Parar
+      </button>
+      <div style="margin-top:12px;">
+        <div class="panel-title" style="margin-bottom:8px;">Câmera disponível</div>
+        <select id="camSelect" class="sel">
+          <option value="">-- clique em Iniciar para listar --</option>
+        </select>
+        <button class="btn btn-secondary" id="btnRefreshCams" style="margin-top:6px; font-size:11px; padding:7px;" onclick="refreshCamList()">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M10 6A4 4 0 1 1 6 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><polyline points="6,0 8,2 6,4" fill="currentColor"/></svg>
+          Atualizar lista
+        </button>
+        <div id="camError" style="display:none; margin-top:8px; padding:8px 10px; background:rgba(255,74,110,0.1); border:1px solid rgba(255,74,110,0.25); border-radius:6px; font-size:11px; color:var(--red); line-height:1.5;"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Pessoas</div>
+      <div class="range-row" style="margin-top:0;">
+        <label>Máx. de pessoas</label>
+        <input type="range" min="1" max="6" value="4" id="numPeopleR" oninput="onNumPeopleChange(+this.value)">
+        <span id="numPeopleV">4</span>
+      </div>
+      <div style="margin-top:10px;">
+        <div class="panel-title" style="margin-bottom:6px;">Painéis (ângulos/keypoints)</div>
+        <select id="personSel" class="sel"></select>
+      </div>
+      <div id="personCount" style="margin-top:8px; font-size:11px; color:var(--text2);">0 pessoa(s) detectada(s)</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Visualização</div>
+      <div class="toggle-group">
+        <button class="toggle-btn active" id="togSkeleton" onclick="toggleVis('skeleton',this)">Esqueleto</button>
+        <button class="toggle-btn active" id="togPoints" onclick="toggleVis('points',this)">Pontos</button>
+      </div>
+      <div class="toggle-group" style="margin-top:6px;">
+        <button class="toggle-btn" id="togMesh" onclick="toggleVis('mesh',this)">Malha</button>
+        <button class="toggle-btn active" id="togFace" onclick="toggleVis('face',this)">Rosto</button>
+      </div>
+      <div class="range-row">
+        <label>Linha</label>
+        <input type="range" min="1" max="5" value="2" id="lineW" oninput="lineWidth=+this.value;document.getElementById('lineWv').textContent=this.value+'px'">
+        <span id="lineWv">2px</span>
+      </div>
+      <div class="range-row">
+        <label>Opacidade</label>
+        <input type="range" min="20" max="100" value="80" id="alphaR" oninput="overlayAlpha=this.value/100;document.getElementById('alphaV').textContent=this.value+'%'">
+        <span id="alphaV">80%</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Ângulos articulares</div>
+      <div class="angle-readout">
+        <div class="angle-card"><div class="val" id="angKneeL">--°</div><div class="lbl">Joelho E</div></div>
+        <div class="angle-card"><div class="val" id="angKneeR">--°</div><div class="lbl">Joelho D</div></div>
+        <div class="angle-card"><div class="val" id="angElbL">--°</div><div class="lbl">Cotovelo E</div></div>
+        <div class="angle-card"><div class="val" id="angElbR">--°</div><div class="lbl">Cotovelo D</div></div>
+      </div>
+      <div class="chart-wrap" style="margin-top:10px;">
+        <canvas id="angleChart"></canvas>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Keypoints ativos</div>
+      <div class="keypoints-grid" id="kpGrid">
+        <div class="kp-item"><div class="kp-dot" style="background:#888"></div><div class="kp-label">--</div><div class="kp-val">--</div></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Gravação</div>
+      <button class="btn btn-danger" id="btnRec" disabled onclick="toggleRec()">
+        <svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="5" fill="currentColor"/></svg>
+        Iniciar gravação
+      </button>
+      <div style="margin-top:8px; font-size:10px; color:var(--text2); line-height:1.5;">
+        A gravação continua mesmo ao trocar de aba (ex.: YouTube). Um botão flutuante de parar acompanha você.
+      </div>
+      <div class="rec-indicator hidden" id="recIndicator">
+        <div class="rec-dot"></div>
+        <span class="rec-text">REC</span>
+        <span class="rec-timer" id="recTimer">00:00</span>
+      </div>
+      <div id="exportSection" style="display:none; margin-top:8px;">
+        <div class="panel-title" style="margin-bottom:8px;">Exportar</div>
+        <button class="btn btn-secondary" id="btnExportMP4" onclick="exportMP4()" style="font-size:12px;">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="1" y="2" width="8" height="9" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M9 5l3-2v7l-3-2V5z" fill="currentColor"/></svg>
+          Salvar MP4
+        </button>
+        <div class="export-row">
+          <button class="btn btn-secondary" id="btnExportCSV" onclick="exportCSV()" style="font-size:11px;">CSV</button>
+          <button class="btn btn-secondary" id="btnExportJSON" onclick="exportJSON()" style="font-size:11px;">JSON</button>
+        </div>
+        <div id="mp4Status" style="display:none; margin-top:8px; padding:7px 10px; background:rgba(0,229,160,0.08); border:1px solid rgba(0,229,160,0.2); border-radius:6px; font-size:11px; color:var(--accent); line-height:1.5;"></div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<footer>
+  <span><div class="dot ok"></div> MediaPipe Pose Landmarker</span>
+  <span><div class="dot ok" id="modelDot"></div> <span id="modelStatus">Carregando...</span></span>
+  <span style="margin-left:auto;" id="kpCount">0 keypoints detectados</span>
+</footer>
+
+<script type="module">
+import { PoseLandmarker, FaceLandmarker, FilesetResolver }
+  from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/vision_bundle.mjs";
+
+const WASM_URL  = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm";
+const POSE_MODEL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task";
+const FACE_MODEL = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
+
+const videoEl = document.getElementById('videoEl');
+const viewport = document.getElementById('viewport');
+const canvas = document.getElementById('overlayCanvas');
+const ctx = canvas.getContext('2d');
+const placeholder = document.getElementById('placeholder');
+const btnStart = document.getElementById('btnStart');
+const btnStop = document.getElementById('btnStop');
+const btnRec = document.getElementById('btnRec');
+const statusDot = document.getElementById('statusDot');
+const statusLabel = document.getElementById('statusLabel');
+const hudFps = document.getElementById('hudFps');
+const hudConf = document.getElementById('hudConf');
+const loadingOverlay = document.getElementById('loadingOverlay');
+
+let poseLandmarker = null;
+let faceLandmarker = null;
+let fps = 0;
+let frameCount = 0;
+let fpsInterval = null;
+let lastVideoTime = -1;
+let lastFaces = [];
+let numPeople = 4;
+let watchedPerson = 0;   // pessoa exibida nos painéis de ângulos/keypoints
+let cameraRunning = false;
+let detecting = false;
+
+let showSkeleton = true;
+let showPoints = true;
+let showMesh = false;
+let showFace = true;
+window.showVideo = true;
+window.lineWidth = 2;
+window.overlayAlpha = 0.8;
+
+let isRecording = false;
+let recordedFrames = [];
+let recStartTime = 0;
+let recTimerInterval = null;
+let mediaRecorder = null;
+let recordedChunks = [];
+let recStream = null;
+let recVideoTrack = null;
+let pipWindow = null;
+let popupWindow = null;
+const recordCanvas = document.getElementById('recordCanvas');
+const recordCtx = recordCanvas.getContext('2d');
+
+const angleHistory = { kneeL: [], kneeR: [], elbL: [], elbR: [] };
+const HIST = 60;
+
+/* ── Ticker via Web Worker ─────────────────────────────
+   requestAnimationFrame e setInterval são REDUZIDOS a ~1 fps
+   quando a aba fica em segundo plano (ex.: usuário abre o
+   YouTube em outra aba). Timers dentro de Web Workers NÃO
+   sofrem esse throttling, então o worker envia "ticks" de
+   ~33 ms que mantêm a detecção de pose E a gravação rodando
+   normalmente mesmo com a aba oculta. */
+const tickerWorker = new Worker(URL.createObjectURL(new Blob([`
+  let id = null;
+  onmessage = e => {
+    if (e.data === 'start' && !id) id = setInterval(() => postMessage(0), 33);
+    if (e.data === 'stop' && id) { clearInterval(id); id = null; }
+  };
+`], { type: 'text/javascript' })));
+tickerWorker.onmessage = () => {
+  processFrame();
+  if (isRecording) composeRecordFrame();
+};
+
+function toggleVis(type, btn) {
+  btn.classList.toggle('active');
+  if (type === 'skeleton') showSkeleton = !showSkeleton;
+  if (type === 'points')   showPoints   = !showPoints;
+  if (type === 'mesh')     showMesh     = !showMesh;
+  if (type === 'face')     showFace     = !showFace;
+}
+
+function toggleVideoVisibility() {
+  window.showVideo = !window.showVideo;
+  videoEl.style.opacity = window.showVideo ? '1' : '0';
+  document.getElementById('btnToggleVideoLabel').textContent = window.showVideo ? 'Ocultar vídeo' : 'Exibir vídeo';
+}
+
+/* ── Tela cheia ────────────────────────────────────── */
+function toggleFullscreen() {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else viewport.requestFullscreen().catch(()=>{});
+}
+viewport.addEventListener('dblclick', toggleFullscreen);
+document.addEventListener('keydown', e => {
+  if ((e.key === 'f' || e.key === 'F') && !e.ctrlKey && !e.altKey && !e.metaKey
+      && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName || '')) toggleFullscreen();
+});
+document.addEventListener('fullscreenchange', () => {
+  document.getElementById('btnFullscreen').textContent =
+    document.fullscreenElement ? '✕ Sair da tela cheia' : '⛶ Tela cheia';
+});
+
+/* ── Face Landmarker índices (mesma malha do Face Mesh) ── */
+const FACE_LIPS_OUTER  = [61,185,40,39,37,0,267,269,270,409,291,375,321,405,314,17,84,181,91,146,61];
+const FACE_LIPS_INNER  = [78,191,80,81,82,13,312,311,310,415,308,324,318,402,317,14,87,178,88,95,78];
+const FACE_EYE_L_OUTER = [33,7,163,144,145,153,154,155,133,173,157,158,159,160,161,246,33];
+const FACE_EYE_R_OUTER = [362,382,381,380,374,373,390,249,263,466,388,387,386,385,384,398,362];
+const FACE_BROW_L      = [70,63,105,66,107,55,65,52,53,46];
+const FACE_BROW_R      = [300,293,334,296,336,285,295,282,283,276];
+const FACE_NOSE        = [168,6,197,195,5,4,1,19,94,2];
+const FACE_CONTOUR     = [10,338,297,332,284,251,389,356,454,323,361,288,397,365,379,378,400,377,152,148,176,149,150,136,172,58,132,93,234,127,162,21,54,103,67,109,10];
+
+function polyline(pts, lm, toX, toY, close) {
+  if (!pts || pts.length < 2) return;
+  ctx.beginPath();
+  pts.forEach((i, idx) => {
+    const p = lm[i]; if (!p) return;
+    idx === 0 ? ctx.moveTo(toX(p.x), toY(p.y)) : ctx.lineTo(toX(p.x), toY(p.y));
+  });
+  if (close) ctx.closePath();
+  ctx.stroke();
+}
+
+function drawFaceMesh(lm, toX, toY) {
+  ctx.save();
+  ctx.globalAlpha = window.overlayAlpha;
+
+  ctx.strokeStyle = 'rgba(123,94,167,0.7)'; ctx.lineWidth = 1; ctx.lineJoin = 'round';
+  polyline(FACE_CONTOUR, lm, toX, toY, true);
+
+  ctx.strokeStyle = 'rgba(255,201,71,0.85)'; ctx.lineWidth = 1.2;
+  polyline(FACE_BROW_L, lm, toX, toY, false);
+  polyline(FACE_BROW_R, lm, toX, toY, false);
+
+  ctx.strokeStyle = 'rgba(74,158,255,0.9)'; ctx.lineWidth = 1.2;
+  polyline(FACE_EYE_L_OUTER, lm, toX, toY, true);
+  polyline(FACE_EYE_R_OUTER, lm, toX, toY, true);
+
+  ctx.strokeStyle = 'rgba(255,201,71,0.6)'; ctx.lineWidth = 1;
+  polyline(FACE_NOSE, lm, toX, toY, false);
+
+  ctx.strokeStyle = 'rgba(0,229,160,1)'; ctx.lineWidth = 1.5;
+  polyline(FACE_LIPS_OUTER, lm, toX, toY, true);
+  ctx.strokeStyle = 'rgba(0,229,160,0.5)'; ctx.lineWidth = 1;
+  polyline(FACE_LIPS_INNER, lm, toX, toY, true);
+
+  const lipTop = lm[13], lipBot = lm[14];
+  const eyeLTop = lm[159], eyeLBot = lm[145];
+  const eyeRTop = lm[386], eyeRBot = lm[374];
+
+  if (lipTop && lipBot && Math.abs(toY(lipTop.y) - toY(lipBot.y)) > 4) {
+    ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.beginPath();
+    FACE_LIPS_INNER.forEach((i,idx) => { const p=lm[i]; if(!p) return; idx===0?ctx.moveTo(toX(p.x),toY(p.y)):ctx.lineTo(toX(p.x),toY(p.y)); });
+    ctx.closePath(); ctx.fill();
+  }
+  if (eyeLTop && eyeLBot && Math.abs(toY(eyeLTop.y) - toY(eyeLBot.y)) < 5) {
+    ctx.fillStyle = 'rgba(20,24,36,0.92)'; ctx.beginPath();
+    FACE_EYE_L_OUTER.forEach((i,idx) => { const p=lm[i]; if(!p) return; idx===0?ctx.moveTo(toX(p.x),toY(p.y)):ctx.lineTo(toX(p.x),toY(p.y)); });
+    ctx.closePath(); ctx.fill();
+  }
+  if (eyeRTop && eyeRBot && Math.abs(toY(eyeRTop.y) - toY(eyeRBot.y)) < 5) {
+    ctx.fillStyle = 'rgba(20,24,36,0.92)'; ctx.beginPath();
+    FACE_EYE_R_OUTER.forEach((i,idx) => { const p=lm[i]; if(!p) return; idx===0?ctx.moveTo(toX(p.x),toY(p.y)):ctx.lineTo(toX(p.x),toY(p.y)); });
+    ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+}
+
+/* ── Ângulos ───────────────────────────────────────── */
+function angle3(a, b, c) {
+  const ab = {x:a.x-b.x,y:a.y-b.y}, cb = {x:c.x-b.x,y:c.y-b.y};
+  const dot = ab.x*cb.x + ab.y*cb.y;
+  const cross = Math.abs(ab.x*cb.y - ab.y*cb.x);
+  return Math.round(Math.atan2(cross,dot)*180/Math.PI);
+}
+
+/* Nomes na ordem oficial dos 33 landmarks do BlazePose */
+const KP_NAMES = ['Nariz','Olho E int','Olho E','Olho E ext','Olho D int','Olho D','Olho D ext','Orelha E','Orelha D','Boca E','Boca D','Ombro E','Ombro D','Cotovelo E','Cotovelo D','Pulso E','Pulso D','Mindinho E','Mindinho D','Indicador E','Indicador D','Polegar E','Polegar D','Quadril E','Quadril D','Joelho E','Joelho D','Tornozelo E','Tornozelo D','Calcanhar E','Calcanhar D','Pé E','Pé D'];
+const JOINT_COLORS = ['#00e5a0','#00e5a0','#00e5a0','#00e5a0','#00e5a0','#00e5a0','#00e5a0','#7b5ea7','#7b5ea7','#7b5ea7','#7b5ea7','#ffc947','#ffc947','#ffc947','#ffc947','#ff8c69','#ff8c69','#ff8c69','#ff8c69','#ff8c69','#ff8c69','#ff8c69','#ff8c69','#4a9eff','#4a9eff','#ff4a6e','#ff4a6e','#ff4a6e','#ff4a6e','#ff4a6e','#ff4a6e','#ff4a6e','#ff4a6e'];
+const KEY_JOINTS = [0,11,12,13,14,15,16,23,24,25,26,27,28];
+
+/* Uma cor de esqueleto por pessoa */
+const PERSON_COLORS = ['#00e5a0','#4a9eff','#ffc947','#ff4a6e','#c084fc','#ff8c69'];
+function rgba(hex, a) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
+}
+
+let POSE_CONNECTIONS = [];
+
+function updateKPGrid(lm) {
+  const grid = document.getElementById('kpGrid');
+  const active = KEY_JOINTS.filter(i => lm[i] && (lm[i].visibility ?? 1) > 0.5);
+  grid.innerHTML = active.map(i => {
+    const p = lm[i], conf = Math.round((p.visibility ?? 0)*100);
+    return `<div class="kp-item"><div class="kp-dot" style="background:${JOINT_COLORS[i]||'#888'}"></div><div class="kp-label">${KP_NAMES[i]||'kp'+i}</div><div class="kp-val">${conf}%</div></div>`;
+  }).join('') || '<div class="kp-item" style="grid-column:1/-1"><div class="kp-label" style="color:var(--text2)">Nenhuma pose detectada</div></div>';
+}
+
+function updateAngles(lm) {
+  const vis = i => lm[i] && (lm[i].visibility ?? 1) > 0.5, get = i => lm[i];
+  let kL='--',kR='--',eL='--',eR='--';
+  if(vis(23)&&vis(25)&&vis(27)) kL=angle3(get(23),get(25),get(27))+'°';
+  if(vis(24)&&vis(26)&&vis(28)) kR=angle3(get(24),get(26),get(28))+'°';
+  if(vis(11)&&vis(13)&&vis(15)) eL=angle3(get(11),get(13),get(15))+'°';
+  if(vis(12)&&vis(14)&&vis(16)) eR=angle3(get(12),get(14),get(16))+'°';
+  document.getElementById('angKneeL').textContent=kL;
+  document.getElementById('angKneeR').textContent=kR;
+  document.getElementById('angElbL').textContent=eL;
+  document.getElementById('angElbR').textContent=eR;
+  const push=(arr,val)=>{arr.push(val==='--'?null:parseInt(val));if(arr.length>HIST)arr.shift();};
+  push(angleHistory.kneeL,kL); push(angleHistory.kneeR,kR);
+  push(angleHistory.elbL,eL);  push(angleHistory.elbR,eR);
+  drawAngleChart();
+}
+
+function drawAngleChart() {
+  const cvs=document.getElementById('angleChart'), c=cvs.getContext('2d');
+  const W=cvs.parentElement.clientWidth-20; cvs.width=W; cvs.height=120;
+  c.clearRect(0,0,W,120);
+  c.fillStyle='rgba(255,255,255,0.03)'; c.fillRect(0,0,W,120);
+  [{data:angleHistory.kneeL,color:'#ff4a6e'},{data:angleHistory.kneeR,color:'#4a9eff'},{data:angleHistory.elbL,color:'#ffc947'},{data:angleHistory.elbR,color:'#00e5a0'}]
+  .forEach(({data,color})=>{
+    if(data.filter(v=>v!==null).length<2) return;
+    c.beginPath(); c.strokeStyle=color; c.lineWidth=1.5; c.globalAlpha=0.8;
+    let first=true;
+    data.forEach((v,i)=>{
+      if(v===null){first=true;return;}
+      const x=(i/(HIST-1))*W, y=120-((v/180)*110)-5;
+      first?c.moveTo(x,y):c.lineTo(x,y); first=false;
+    });
+    c.stroke(); c.globalAlpha=1;
+  });
+  c.font='10px monospace'; c.fillStyle='rgba(136,144,164,0.7)';
+  c.fillText('0°',2,116); c.fillText('180°',2,12);
+}
+
+/* ── Mapeamento de coordenadas ─────────────────────
+   O vídeo usa object-fit:contain (corpo inteiro visível),
+   então o frame fica "letterboxed" dentro do elemento.
+   Calculamos o retângulo real do vídeo na tela e mapeamos
+   as coordenadas normalizadas [0..1] para dentro dele.
+   O vídeo tem transform:scaleX(-1) (espelho), por isso
+   toX usa (1 - nx). ─────────────────────────────── */
+function getContainRect() {
+  const dispW = viewport.clientWidth, dispH = viewport.clientHeight;
+  const vw = videoEl.videoWidth, vh = videoEl.videoHeight;
+  if (!vw || !vh) return { ox:0, oy:0, w:dispW, h:dispH, dispW, dispH };
+  const s = Math.min(dispW/vw, dispH/vh);
+  const w = vw*s, h = vh*s;
+  return { ox:(dispW-w)/2, oy:(dispH-h)/2, w, h, dispW, dispH };
+}
+
+function processFrame() {
+  if (!cameraRunning || detecting || !poseLandmarker || videoEl.readyState < 2) return;
+  if (videoEl.currentTime === lastVideoTime) return;
+  lastVideoTime = videoEl.currentTime;
+  detecting = true;
+  try {
+    const ts = performance.now();
+    const poseResult = poseLandmarker.detectForVideo(videoEl, ts);
+    if (faceLandmarker && showFace) {
+      const faceResult = faceLandmarker.detectForVideo(videoEl, ts);
+      lastFaces = faceResult.faceLandmarks || [];
+    } else if (!showFace) {
+      lastFaces = [];
+    }
+    renderResults(poseResult.landmarks || []);
+  } catch(e) {
+    console.error('Erro na detecção:', e);
+  }
+  detecting = false;
+}
+
+function renderResults(persons) {
+  const rect = getContainRect();
+  canvas.width  = rect.dispW;
+  canvas.height = rect.dispH;
+
+  const toX = nx => rect.ox + (1 - nx) * rect.w;
+  const toY = ny => rect.oy + ny * rect.h;
+
+  ctx.clearRect(0, 0, rect.dispW, rect.dispH);
+  if (!window.showVideo) {
+    ctx.fillStyle = '#0a0c10';
+    ctx.fillRect(0, 0, rect.dispW, rect.dispH);
+  }
+
+  if (persons.length > 0) {
+    let confSum = 0, confN = 0;
+
+    persons.forEach((lm, pi) => {
+      const color = PERSON_COLORS[pi % PERSON_COLORS.length];
+      ctx.save();
+      ctx.globalAlpha = window.overlayAlpha;
+
+      if (showMesh) {
+        POSE_CONNECTIONS.forEach(([a,b])=>{
+          const pa=lm[a],pb=lm[b]; if(!pa||!pb) return;
+          ctx.beginPath(); ctx.strokeStyle=rgba(color,0.15); ctx.lineWidth=8;
+          ctx.moveTo(toX(pa.x),toY(pa.y)); ctx.lineTo(toX(pb.x),toY(pb.y)); ctx.stroke();
+        });
+      }
+      if (showSkeleton) {
+        POSE_CONNECTIONS.forEach(([a,b])=>{
+          const pa=lm[a],pb=lm[b]; if(!pa||!pb) return;
+          if((pa.visibility??1)<0.3||(pb.visibility??1)<0.3) return;
+          ctx.beginPath(); ctx.strokeStyle=rgba(color,0.85); ctx.lineWidth=window.lineWidth; ctx.lineCap='round';
+          ctx.moveTo(toX(pa.x),toY(pa.y)); ctx.lineTo(toX(pb.x),toY(pb.y)); ctx.stroke();
+        });
+      }
+      if (showPoints) {
+        lm.forEach((p,i)=>{
+          if((p.visibility??1)<0.3) return;
+          const r=i===0?7:5;
+          ctx.beginPath(); ctx.fillStyle=JOINT_COLORS[i]||'#fff';
+          ctx.arc(toX(p.x),toY(p.y),r,0,Math.PI*2); ctx.fill();
+          ctx.beginPath(); ctx.strokeStyle=rgba(color,0.9); ctx.lineWidth=1.5;
+          ctx.arc(toX(p.x),toY(p.y),r,0,Math.PI*2); ctx.stroke();
+        });
+      }
+
+      // Etiqueta "P1", "P2"... acima da cabeça
+      const nose = lm[0];
+      if (nose && (nose.visibility??1) > 0.3) {
+        const x = toX(nose.x), y = toY(nose.y) - 26;
+        ctx.font = '700 12px monospace';
+        const label = 'P' + (pi+1);
+        const tw = ctx.measureText(label).width;
+        ctx.fillStyle = 'rgba(0,0,0,0.65)';
+        if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x-tw/2-6, y-12, tw+12, 18, 5); ctx.fill(); }
+        else ctx.fillRect(x-tw/2-6, y-12, tw+12, 18);
+        ctx.fillStyle = color;
+        ctx.fillText(label, x-tw/2, y+2);
+      }
+      ctx.restore();
+
+      lm.forEach(p => { confSum += (p.visibility ?? 0); confN++; });
+    });
+
+    if (showFace && lastFaces.length) {
+      lastFaces.forEach(f => drawFaceMesh(f, toX, toY));
+    }
+
+    const avgConf = confN ? confSum/confN : 0;
+    hudConf.style.display='block';
+    hudConf.textContent=`Confiança: ${Math.round(avgConf*100)}% · ${persons.length} pessoa(s)`;
+    statusDot.className='status-dot tracking';
+    statusLabel.textContent=`Rastreando ${persons.length} pessoa(s)`;
+    document.getElementById('personCount').textContent = `${persons.length} pessoa(s) detectada(s)`;
+
+    const watched = persons[Math.min(watchedPerson, persons.length-1)] || [];
+    const activeKp = persons.reduce((s,lm)=>s+lm.filter(p=>(p.visibility??1)>0.5).length,0);
+    document.getElementById('kpCount').textContent = `${activeKp} keypoints detectados`;
+    updateKPGrid(watched);
+    updateAngles(watched);
+
+    if (isRecording) {
+      recordedFrames.push({
+        t: Date.now()-recStartTime,
+        persons: persons.map(lm => lm.map(p=>({x:+p.x.toFixed(4),y:+p.y.toFixed(4),z:+p.z.toFixed(4),v:+((p.visibility??0)).toFixed(3)})))
+      });
+    }
+  } else {
+    statusDot.className='status-dot live';
+    statusLabel.textContent='Câmera ativa · sem pose';
+    hudConf.style.display='none';
+    document.getElementById('personCount').textContent = '0 pessoa(s) detectada(s)';
+    document.getElementById('kpCount').textContent = '0 keypoints detectados';
+    updateKPGrid([]);
+  }
+
+  frameCount++;
+  hudFps.style.display='block';
+  hudFps.textContent=`${fps} FPS`;
+}
+
+/* ── Nº de pessoas ─────────────────────────────────── */
+function refreshPersonSel() {
+  const sel = document.getElementById('personSel');
+  sel.innerHTML = Array.from({length:numPeople},(_,i)=>`<option value="${i}">Pessoa ${i+1}</option>`).join('');
+  sel.value = String(Math.min(watchedPerson, numPeople-1));
+  watchedPerson = +sel.value;
+}
+document.getElementById('personSel').addEventListener('change', e => { watchedPerson = +e.target.value; });
+
+async function onNumPeopleChange(n) {
+  numPeople = n;
+  document.getElementById('numPeopleV').textContent = n;
+  refreshPersonSel();
+  try {
+    if (poseLandmarker) await poseLandmarker.setOptions({ numPoses: n });
+    if (faceLandmarker) await faceLandmarker.setOptions({ numFaces: n });
+  } catch(e) { console.error('Erro ao ajustar nº de pessoas:', e); }
+}
+
+/* ── Inicialização dos modelos ─────────────────────── */
+let faceMeshFailed = false;
+let skipFaceMeshRequested = false;
+
+function skipFaceMesh() {
+  skipFaceMeshRequested = true;
+  document.getElementById('btnSkipFace').disabled = true;
+  document.getElementById('btnSkipFace').textContent = 'Pulando...';
+}
+
+async function createLandmarker(cls, fileset, opts) {
+  // Tenta GPU primeiro; alguns computadores só funcionam com CPU.
+  try {
+    return await cls.createFromOptions(fileset, { ...opts, baseOptions: { ...opts.baseOptions, delegate: 'GPU' } });
+  } catch(e) {
+    console.warn('GPU indisponível, usando CPU:', e);
+    return await cls.createFromOptions(fileset, { ...opts, baseOptions: { ...opts.baseOptions, delegate: 'CPU' } });
+  }
+}
+
+async function initFaceLandmarker(fileset) {
+  document.getElementById('step2icon').textContent='⏳';
+  document.getElementById('step2txt').textContent='Face Landmarker — carregando...';
+  document.getElementById('loadingMsg').textContent='Carregando Face Landmarker...';
+  document.getElementById('loadingDetail').textContent='Detecta boca, olhos e expressões (vários rostos)';
+
+  const skipTimer = setTimeout(()=>{ document.getElementById('btnSkipFace').style.display='block'; }, 12000);
+
+  try {
+    const created = await Promise.race([
+      createLandmarker(FaceLandmarker, fileset, {
+        baseOptions: { modelAssetPath: FACE_MODEL },
+        runningMode: 'VIDEO',
+        numFaces: numPeople,
+        minFaceDetectionConfidence: 0.5,
+        minFacePresenceConfidence: 0.5,
+        minTrackingConfidence: 0.5
+      }),
+      new Promise((_,reject)=>{
+        const check=setInterval(()=>{ if(skipFaceMeshRequested){clearInterval(check);reject(new Error('skip'));} },200);
+        setTimeout(()=>{clearInterval(check);reject(new Error('timeout'));},60000);
+      })
+    ]);
+    faceLandmarker = created;
+    clearTimeout(skipTimer);
+    document.getElementById('step2icon').textContent='✅';
+    document.getElementById('step2txt').textContent='Face Landmarker — pronto';
+  } catch(e) {
+    clearTimeout(skipTimer);
+    faceMeshFailed=true; faceLandmarker=null; lastFaces=[];
+    const reason=e.message==='skip'?'pulado':'falhou (sem expressões)';
+    document.getElementById('step2icon').textContent='⚠️';
+    document.getElementById('step2txt').textContent=`Face Landmarker — ${reason}`;
+    document.getElementById('btnSkipFace').style.display='none';
+    document.getElementById('modelStatus').textContent='Pose ativo · Face '+reason;
+    document.getElementById('modelDot').className='dot warn';
+  }
+}
+
+async function initModels() {
+  try {
+    document.getElementById('step1icon').textContent='⏳';
+    document.getElementById('step1txt').textContent='Pose Landmarker — carregando...';
+    const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
+    poseLandmarker = await createLandmarker(PoseLandmarker, fileset, {
+      baseOptions: { modelAssetPath: POSE_MODEL },
+      runningMode: 'VIDEO',
+      numPoses: numPeople,
+      minPoseDetectionConfidence: 0.5,
+      minPosePresenceConfidence: 0.5,
+      minTrackingConfidence: 0.5
+    });
+    POSE_CONNECTIONS = (PoseLandmarker.POSE_CONNECTIONS || []).map(c => [c.start, c.end]);
+    document.getElementById('step1icon').textContent='✅';
+    document.getElementById('step1txt').textContent='Pose Landmarker — pronto (multi-pessoa)';
+    await initFaceLandmarker(fileset);
+    loadingOverlay.classList.add('hidden');
+    if (!faceMeshFailed && !skipFaceMeshRequested) {
+      document.getElementById('modelStatus').textContent='Pose + Face prontos (multi-pessoa)';
+      document.getElementById('modelDot').className='dot ok';
+    } else {
+      document.getElementById('modelStatus').textContent='Pose ativo (sem Face Landmarker)';
+      document.getElementById('modelDot').className='dot warn';
+    }
+    btnStart.disabled=false;
+  } catch(e) {
+    document.getElementById('loadingMsg').textContent='Erro ao carregar o modelo de pose.';
+    document.getElementById('loadingDetail').textContent=e.message+' — verifique a conexão e recarregue a página.';
+    document.getElementById('step1icon').textContent='❌';
+  }
+}
+
+/* ── Câmera ────────────────────────────────────────── */
+async function refreshCamList() {
+  const sel=document.getElementById('camSelect'), errBox=document.getElementById('camError');
+  errBox.style.display='none';
+  try {
+    const devices=await navigator.mediaDevices.enumerateDevices();
+    const cams=devices.filter(d=>d.kind==='videoinput');
+    if(!cams.length){sel.innerHTML='<option value="">Nenhuma câmera encontrada</option>';return;}
+    const current=sel.value;
+    sel.innerHTML=cams.map((d,i)=>`<option value="${d.deviceId}">${d.label||'Câmera '+(i+1)}</option>`).join('');
+    if(current&&cams.find(d=>d.deviceId===current)) sel.value=current;
+  } catch(e){ errBox.textContent='Não foi possível listar câmeras: '+e.message; errBox.style.display='block'; }
+}
+
+async function startStream(deviceId) {
+  const errBox=document.getElementById('camError'); errBox.style.display='none';
+  const base={ width:{ideal:1280}, height:{ideal:720} };
+  const constraints={ video: deviceId?{...base,deviceId:{exact:deviceId}}:base, audio:false };
+  try { return await navigator.mediaDevices.getUserMedia(constraints); }
+  catch(e) {
+    let msg='Erro ao acessar a câmera.';
+    if(e.name==='NotAllowedError')    msg='Permissão negada. Autorize o acesso à câmera no navegador.';
+    else if(e.name==='NotFoundError') msg='Câmera não encontrada. Verifique a conexão USB e tente atualizar a lista.';
+    else if(e.name==='NotReadableError') msg='Câmera em uso por outro programa. Feche outros apps e tente novamente.';
+    else if(e.name==='OverconstrainedError') msg='A câmera selecionada não suporta a configuração solicitada. Tente outra câmera.';
+    else msg=e.name+': '+e.message;
+    errBox.textContent=msg; errBox.style.display='block'; return null;
+  }
+}
+
+function startProcessing() {
+  cameraRunning = true;
+  lastVideoTime = -1;
+  tickerWorker.postMessage('start');
+  clearInterval(fpsInterval);
+  fpsInterval = setInterval(()=>{fps=frameCount;frameCount=0;},1000);
+}
+
+btnStart.addEventListener('click', async()=>{
+  const sel=document.getElementById('camSelect');
+  const stream=await startStream(sel.value||null);
+  if(!stream) return;
+  if(videoEl.srcObject) videoEl.srcObject.getTracks().forEach(t=>t.stop());
+  videoEl.srcObject=stream;
+  videoEl.style.display='block';
+  placeholder.style.display='none';
+  await refreshCamList();
+  videoEl.onloadedmetadata=()=>{
+    videoEl.play();
+    startProcessing();
+    statusDot.className='status-dot live';
+    statusLabel.textContent='Câmera ativa';
+    btnStart.disabled=true; btnStop.disabled=false; btnRec.disabled=false;
+    document.getElementById('btnToggleVideo').style.display='block';
+  };
+});
+
+document.getElementById('camSelect').addEventListener('change', async()=>{
+  if(btnStop.disabled) return;
+  const deviceId=document.getElementById('camSelect').value;
+  if(!deviceId) return;
+  const stream=await startStream(deviceId);
+  if(!stream) return;
+  if(videoEl.srcObject) videoEl.srcObject.getTracks().forEach(t=>t.stop());
+  videoEl.srcObject=stream;
+  videoEl.onloadedmetadata=()=>{ videoEl.play(); lastVideoTime=-1; statusLabel.textContent='Câmera trocada'; };
+});
+
+btnStop.addEventListener('click',()=>{
+  cameraRunning=false;
+  tickerWorker.postMessage('stop');
+  if(isRecording) toggleRec();
+  if(videoEl.srcObject){videoEl.srcObject.getTracks().forEach(t=>t.stop());videoEl.srcObject=null;}
+  videoEl.style.display='none';
+  placeholder.style.display='flex';
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  statusDot.className='status-dot'; statusLabel.textContent='Câmera parada';
+  hudFps.style.display='none'; hudConf.style.display='none';
+  btnStart.disabled=false; btnStop.disabled=true; btnRec.disabled=true;
+  window.showVideo=true; videoEl.style.opacity='1';
+  document.getElementById('btnToggleVideo').style.display='none';
+  document.getElementById('btnToggleVideoLabel').textContent='Ocultar vídeo';
+  clearInterval(fpsInterval);
+  if(mediaRecorder&&mediaRecorder.state!=='inactive'){mediaRecorder.stop();mediaRecorder=null;}
+});
+
+/* ── Gravação (continua em segundo plano) ──────────── */
+function composeRecordFrame() {
+  if(!isRecording) return;
+  const W=videoEl.videoWidth||canvas.width, H=videoEl.videoHeight||canvas.height;
+  if(recordCanvas.width!==W||recordCanvas.height!==H){recordCanvas.width=W;recordCanvas.height=H;}
+  if(window.showVideo){
+    recordCtx.save(); recordCtx.scale(-1,1);
+    recordCtx.drawImage(videoEl,-W,0,W,H); recordCtx.restore();
+  } else {
+    recordCtx.fillStyle='#0a0c10'; recordCtx.fillRect(0,0,W,H);
+  }
+  // O overlay está letterboxed no canvas de exibição: copia só a
+  // região do vídeo (rect) esticada para o tamanho nativo do frame.
+  const rect=getContainRect();
+  if(rect.w>0&&rect.h>0) recordCtx.drawImage(canvas, rect.ox, rect.oy, rect.w, rect.h, 0, 0, W, H);
+  // captureStream(0) só emite frame quando pedimos explicitamente —
+  // funciona mesmo com a aba em segundo plano.
+  if(recVideoTrack&&recVideoTrack.requestFrame) recVideoTrack.requestFrame();
+  else if(recStream&&recStream.requestFrame) recStream.requestFrame();
+}
+
+function getSupportedMimeType() {
+  const types=['video/webm;codecs=h264','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm','video/mp4'];
+  return types.find(t=>MediaRecorder.isTypeSupported(t))||'';
+}
+
+function fmtTimer() {
+  const s=Math.floor((Date.now()-recStartTime)/1000),m=Math.floor(s/60);
+  return `${String(m).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+}
+
+function toggleRec() {
+  isRecording=!isRecording;
+  const ind=document.getElementById('recIndicator');
+  if(isRecording){
+    recordedFrames=[]; recordedChunks=[]; recStartTime=Date.now();
+    ind.classList.remove('hidden');
+    document.getElementById('recFloat').classList.add('on');
+    document.getElementById('exportSection').style.display='none';
+    document.getElementById('mp4Status').style.display='none';
+    btnRec.innerHTML='<svg width="12" height="12" viewBox="0 0 12 12"><rect x="1" y="1" width="10" height="10" rx="2" fill="currentColor"/></svg> Parar gravação';
+    const mimeType=getSupportedMimeType();
+    recStream=recordCanvas.captureStream(0);
+    recVideoTrack=recStream.getVideoTracks()[0]||null;
+    mediaRecorder=new MediaRecorder(recStream,mimeType?{mimeType}:{});
+    mediaRecorder.ondataavailable=e=>{if(e.data.size>0)recordedChunks.push(e.data);};
+    mediaRecorder.start(100);
+    composeRecordFrame();
+    recTimerInterval=setInterval(()=>{
+      const t=fmtTimer();
+      document.getElementById('recTimer').textContent=t;
+      document.getElementById('recFloatTimer').textContent=t;
+      try{ const el=pipWindow&&pipWindow.document.getElementById('pipTimer'); if(el) el.textContent=t; }catch(_){}
+      try{ const el=popupWindow&&!popupWindow.closed&&popupWindow.document.getElementById('pipTimer'); if(el) el.textContent=t; }catch(_){}
+    },500);
+    openRecFloatWindow();
+  } else {
+    ind.classList.add('hidden');
+    document.getElementById('recFloat').classList.remove('on');
+    clearInterval(recTimerInterval);
+    btnRec.innerHTML='<svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="5" fill="currentColor"/></svg> Iniciar gravação';
+    if(mediaRecorder&&mediaRecorder.state!=='inactive') mediaRecorder.stop();
+    recStream=null; recVideoTrack=null;
+    closeRecFloatWindow();
+    if(recordedFrames.length>0||recordedChunks.length>0) document.getElementById('exportSection').style.display='block';
+  }
+}
+
+function stopRecFromFloat(){ if(isRecording) toggleRec(); }
+
+/* ── Janela flutuante de gravação ──────────────────────
+   Usa a Document Picture-in-Picture API (Chrome/Edge 116+):
+   uma mini-janela SEMPRE VISÍVEL, por cima de qualquer aba
+   (ex.: YouTube), com prévia da câmera, cronômetro e botão
+   de parar. Fallback: popup comum em navegadores sem a API. */
+async function openRecFloatWindow() {
+  closeRecFloatWindow();
+  const buildContent = (win) => {
+    const d = win.document;
+    d.title = 'REC — MoCapWeb CECAPE';
+    d.body.innerHTML = '';
+    const style = d.createElement('style');
+    style.textContent = `
+      body{margin:0;background:#0a0c10;color:#e8eaf0;font-family:system-ui,sans-serif;display:flex;flex-direction:column;height:100vh;overflow:hidden;}
+      video{flex:1;min-height:0;width:100%;object-fit:cover;transform:scaleX(-1);background:#000;}
+      .bar{display:flex;align-items:center;gap:10px;padding:10px 12px;flex-shrink:0;}
+      .dot{width:10px;height:10px;border-radius:50%;background:#ff4a6e;animation:p 1s infinite;}
+      @keyframes p{0%,100%{opacity:1}50%{opacity:.35}}
+      .t{font-family:monospace;font-size:13px;font-weight:700;color:#ff4a6e;}
+      button{margin-left:auto;background:#ff4a6e;color:#fff;border:none;border-radius:7px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;}
+      button:hover{filter:brightness(1.1);}
+      .hint{padding:0 12px 8px;font-size:10px;color:#8890a4;}`;
+    d.head ? d.head.appendChild(style) : d.body.appendChild(style);
+    const vid = d.createElement('video');
+    vid.muted = true; vid.autoplay = true; vid.setAttribute('playsinline','');
+    if (videoEl.srcObject) vid.srcObject = videoEl.srcObject;
+    d.body.appendChild(vid);
+    const bar = d.createElement('div'); bar.className='bar';
+    const dot = d.createElement('div'); dot.className='dot';
+    const t = d.createElement('span'); t.className='t'; t.id='pipTimer'; t.textContent='00:00';
+    const btn = d.createElement('button'); btn.textContent='⏹ Parar gravação';
+    btn.addEventListener('click', stopRecFromFloat);
+    bar.appendChild(dot); bar.appendChild(t); bar.appendChild(btn);
+    d.body.appendChild(bar);
+    const hint = d.createElement('div'); hint.className='hint';
+    hint.textContent = 'Gravando… você pode usar outras abas (ex.: YouTube).';
+    d.body.appendChild(hint);
+  };
+
+  if ('documentPictureInPicture' in window) {
+    try {
+      pipWindow = await window.documentPictureInPicture.requestWindow({ width: 300, height: 300 });
+      buildContent(pipWindow);
+      pipWindow.addEventListener('pagehide', () => { pipWindow = null; });
+      return;
+    } catch(e) { console.warn('Document PiP indisponível:', e); pipWindow = null; }
+  }
+  // Fallback: popup comum (não fica "sempre no topo", mas permanece
+  // visível como janela separada enquanto o usuário navega).
+  try {
+    popupWindow = window.open('', 'mocapRecFloat', 'width=300,height=300,popup=yes');
+    if (popupWindow) buildContent(popupWindow);
+  } catch(e) { console.warn('Popup bloqueado:', e); popupWindow = null; }
+}
+
+function closeRecFloatWindow() {
+  try { if (pipWindow) pipWindow.close(); } catch(_){}
+  try { if (popupWindow && !popupWindow.closed) popupWindow.close(); } catch(_){}
+  pipWindow = null; popupWindow = null;
+}
+
+/* ── Exportação ────────────────────────────────────── */
+function exportMP4() {
+  if(!recordedChunks.length) return;
+  const btn=document.getElementById('btnExportMP4'), status=document.getElementById('mp4Status');
+  btn.disabled=true; btn.textContent='Aguarde...';
+  status.style.display='block'; status.textContent='Finalizando vídeo...';
+  setTimeout(()=>{
+    const mimeType=getSupportedMimeType();
+    const blob=new Blob(recordedChunks,{type:mimeType||'video/webm'});
+    const ext=mimeType.includes('mp4')?'mp4':'webm';
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download=`mocap_${Date.now()}.${ext}`; a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),5000);
+    status.textContent=`Vídeo salvo (${(blob.size/1024/1024).toFixed(1)} MB · .${ext})`;
+    btn.disabled=false;
+    btn.innerHTML='<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="1" y="2" width="8" height="9" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M9 5l3-2v7l-3-2V5z" fill="currentColor"/></svg> Salvar MP4';
+  },300);
+}
+
+function exportCSV() {
+  if(!recordedFrames.length) return;
+  const headers=['frame','time_ms','person',...Array.from({length:33},(_,i)=>[`kp${i}_x`,`kp${i}_y`,`kp${i}_z`,`kp${i}_v`]).flat()];
+  const rows=[];
+  recordedFrames.forEach((f,fi)=>{
+    f.persons.forEach((lm,pi)=>{
+      rows.push([fi,f.t,pi+1,...lm.flatMap(p=>[p.x,p.y,p.z,p.v])].join(','));
+    });
+  });
+  download('mocap_data.csv',[headers.join(','),...rows].join('\n'),'text/csv');
+}
+
+function exportJSON() {
+  if(!recordedFrames.length) return;
+  const data={metadata:{source:'MoCapWeb CECAPE',model:'MediaPipe Pose Landmarker (multi-pessoa)',maxPeople:numPeople,keypoints:KP_NAMES,frames:recordedFrames.length},frames:recordedFrames};
+  download('mocap_data.json',JSON.stringify(data,null,2),'application/json');
+}
+
+function download(name,content,type) {
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([content],{type}));
+  a.download=name; a.click();
+}
+
+/* Handlers usados nos atributos onclick do HTML (escopo de módulo) */
+window.toggleVis = toggleVis;
+window.toggleVideoVisibility = toggleVideoVisibility;
+window.toggleFullscreen = toggleFullscreen;
+window.refreshCamList = refreshCamList;
+window.toggleRec = toggleRec;
+window.stopRecFromFloat = stopRecFromFloat;
+window.exportMP4 = exportMP4;
+window.exportCSV = exportCSV;
+window.exportJSON = exportJSON;
+window.skipFaceMesh = skipFaceMesh;
+window.onNumPeopleChange = onNumPeopleChange;
+
+refreshPersonSel();
+initModels();
+</script>
+</body>
+</html>
