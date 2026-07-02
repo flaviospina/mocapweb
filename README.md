@@ -12,7 +12,19 @@ Sistema de captura de movimentos corporais e faciais 100% no navegador (webcam �
   - o vídeo é capturado com `captureStream(0)` + `requestFrame()` explícito a cada quadro;
   - uma **janela flutuante sempre visível** (Document Picture-in-Picture, Chrome/Edge 116+) mostra a prévia da câmera, o cronômetro e o botão **⏹ Parar gravação** por cima de qualquer aba (fallback: popup em navegadores sem a API)
 - **Ângulos articulares** em tempo real (joelhos e cotovelos) com gráfico histórico, por pessoa selecionável
-- **Exportação**: vídeo MP4/WebM (câmera + esqueletos), CSV e JSON com os 33 keypoints por pessoa e por frame
+- **Modo espelho (professor/aluno)** — carregue um vídeo de referência (aula, coreografia, exercício), reproduza lado a lado e receba uma **pontuação de semelhança (0–100%)** dos movimentos em tempo real, tolerante a espelhamento esquerda/direita
+- **Contador de repetições** — agachamento, polichinelo, flexão de cotovelo e elevação de braços, contados automaticamente pelos ângulos articulares
+- **Reprodução da captura** — reveja o esqueleto gravado quadro a quadro, com play/pause e barra de avanço (scrubbing)
+- **Exportação**: vídeo MP4/WebM (câmera + esqueletos), CSV e JSON com os 33 keypoints por pessoa e por frame, e **BVH** (esqueleto animado importável no Blender: File → Import → Motion Capture .bvh)
+
+## Desempenho (movimento fluido, sem "picote")
+
+- Modelo **lite** por padrão (~3× mais rápido; seletor Rápido/Equilibrado/Preciso na barra lateral)
+- Loop de detecção via `requestAnimationFrame` (60 Hz, sincronizado com o monitor) quando a aba está visível + Web Worker quando oculta
+- Canvas só é redimensionado quando o tamanho muda (redimensionar realoca o buffer a cada quadro)
+- Painéis laterais (keypoints, ângulos, gráfico) atualizados a ~6 Hz em vez de a cada quadro
+- Malha facial processada a cada 2 quadros
+- Se ainda estiver lento: reduza o **máx. de pessoas**, desligue **Rosto**, ou use um navegador com aceleração de GPU ativada
 
 ## Como usar
 

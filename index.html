@@ -140,11 +140,57 @@
     position: relative;
     background: #000;
     display: flex;
-    align-items: center;
-    justify-content: center;
     overflow: hidden;
     min-width: 0;
     min-height: 0;
+  }
+  /* Painel do vídeo de referência (modo espelho) */
+  .ref-pane {
+    display: none;
+    flex: 1;
+    position: relative;
+    min-width: 0;
+    background: #000;
+    border-right: 1px solid var(--border);
+  }
+  .viewport.ref-on .ref-pane { display: block; }
+  #refVideo {
+    width: 100%; height: 100%;
+    object-fit: contain;
+    display: block;
+    background: #000;
+  }
+  #refCanvas {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+  }
+  .sim-score {
+    position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    background: rgba(10,12,16,0.8); border: 1px solid var(--border);
+    border-radius: 10px; padding: 8px 18px; text-align: center;
+    backdrop-filter: blur(6px); z-index: 5;
+  }
+  .sim-score .val { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .sim-score .lbl { font-size: 9px; color: var(--text2); text-transform: uppercase; letter-spacing: 1px; }
+  .sim-score .val.good { color: var(--accent); }
+  .sim-score .val.mid  { color: var(--yellow); }
+  .sim-score .val.bad  { color: var(--red); }
+  .ref-label {
+    position: absolute; bottom: 12px; left: 12px; z-index: 5;
+    font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+    background: rgba(0,0,0,0.6); color: var(--yellow);
+    padding: 3px 10px; border-radius: 100px;
+  }
+  .live-pane {
+    flex: 1;
+    position: relative;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: #000;
   }
   /* object-fit: contain garante que o corpo INTEIRO apareça
      (o "cover" antigo cortava cabeça/pés para preencher a tela). */
@@ -175,11 +221,13 @@
     font-size: 11px; color: var(--accent); font-weight: 600; letter-spacing: 1px;
     background: rgba(0,0,0,0.5); padding: 3px 10px; border-radius: 100px;
     backdrop-filter: blur(4px);
+    z-index: 4;
   }
   .hud-conf {
     position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
     font-size: 11px; color: var(--text2); letter-spacing: 0.5px;
     background: rgba(0,0,0,0.5); padding: 3px 10px; border-radius: 100px;
+    z-index: 4;
   }
   .viewport-btns {
     position: absolute; top: 14px; right: 14px;
@@ -325,6 +373,25 @@
   .loading-logos img { height: 36px; width: auto; object-fit: contain; opacity: 0.7; }
   .loading-logos .logo-divider { width: 1px; height: 30px; background: rgba(255,255,255,0.15); }
 
+  /* Modal de reprodução da captura */
+  #pbModal {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.88); z-index: 500;
+    align-items: center; justify-content: center;
+    flex-direction: column; gap: 14px;
+  }
+  #pbCanvas {
+    max-width: 92vw; max-height: 70vh;
+    background: #0a0c10; border: 1px solid var(--border); border-radius: 10px;
+  }
+  .pb-controls {
+    display: flex; align-items: center; gap: 12px;
+    width: min(92vw, 960px);
+  }
+  .pb-controls .btn { width: auto; padding: 8px 14px; }
+  .pb-controls input[type=range] { flex: 1; accent-color: var(--accent); }
+  .pb-controls span { font-family: monospace; font-size: 12px; color: var(--text2); min-width: 88px; text-align: right; }
+
   /* Em tela cheia o viewport toma o monitor inteiro */
   .viewport:fullscreen { width: 100vw; height: 100vh; }
 
@@ -333,6 +400,8 @@
     .sidebar { width: 100%; border-left: none; border-top: 1px solid var(--border); max-height: 45vh; }
     .header-logos img { height: 26px; }
     header h1 { font-size: 12px; }
+    .viewport.ref-on { flex-direction: column; }
+    .ref-pane { border-right: none; border-bottom: 1px solid var(--border); }
   }
 </style>
 </head>
@@ -391,36 +460,51 @@
 
 <div class="main">
   <div class="viewport" id="viewport">
-    <div class="placeholder" id="placeholder">
-      <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="4" y="10" width="40" height="28" rx="4" stroke="currentColor" stroke-width="2"/>
-        <circle cx="24" cy="24" r="6" stroke="currentColor" stroke-width="2"/>
-        <circle cx="24" cy="24" r="2" fill="currentColor"/>
-      </svg>
-      <p>Clique em "Iniciar câmera" para começar</p>
+
+    <!-- Painel do vídeo de referência (modo espelho professor/aluno) -->
+    <div class="ref-pane" id="refPane">
+      <video id="refVideo" controls loop playsinline></video>
+      <canvas id="refCanvas"></canvas>
+      <div class="ref-label">Vídeo referência</div>
+      <div class="sim-score" id="simScore" style="display:none;">
+        <div class="val" id="simScoreVal">--</div>
+        <div class="lbl">Semelhança</div>
+      </div>
     </div>
-    <video id="videoEl" autoplay playsinline muted style="display:none;"></video>
-    <canvas id="overlayCanvas"></canvas>
-    <canvas id="recordCanvas" style="display:none;"></canvas>
-    <div class="viewport-overlay">
-      <div class="corner tl"></div>
-      <div class="corner tr"></div>
-      <div class="corner bl"></div>
-      <div class="corner br"></div>
-    </div>
-    <div class="hud-fps" id="hudFps" style="display:none;">-- FPS</div>
-    <div class="hud-conf" id="hudConf" style="display:none;">Confiança: --</div>
-    <div class="viewport-btns">
-      <button id="btnToggleVideo" class="viewport-btn" onclick="toggleVideoVisibility()" style="display:none;">
-        <span id="btnToggleVideoLabel">Ocultar vídeo</span>
-      </button>
-      <button id="btnFullscreen" class="viewport-btn" onclick="toggleFullscreen()" title="Tela cheia (F ou duplo clique)">⛶ Tela cheia</button>
-    </div>
-    <!-- Barra REC flutuante (visível também em tela cheia) -->
-    <div class="rec-float" id="recFloat">
-      <div class="rec-dot"></div>
-      <span id="recFloatTimer">00:00</span>
-      <button onclick="stopRecFromFloat()">⏹ Parar</button>
+
+    <!-- Painel da câmera ao vivo -->
+    <div class="live-pane" id="livePane">
+      <div class="placeholder" id="placeholder">
+        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="10" width="40" height="28" rx="4" stroke="currentColor" stroke-width="2"/>
+          <circle cx="24" cy="24" r="6" stroke="currentColor" stroke-width="2"/>
+          <circle cx="24" cy="24" r="2" fill="currentColor"/>
+        </svg>
+        <p>Clique em "Iniciar câmera" para começar</p>
+      </div>
+      <video id="videoEl" autoplay playsinline muted style="display:none;"></video>
+      <canvas id="overlayCanvas"></canvas>
+      <canvas id="recordCanvas" style="display:none;"></canvas>
+      <div class="viewport-overlay">
+        <div class="corner tl"></div>
+        <div class="corner tr"></div>
+        <div class="corner bl"></div>
+        <div class="corner br"></div>
+      </div>
+      <div class="hud-fps" id="hudFps" style="display:none;">-- FPS</div>
+      <div class="hud-conf" id="hudConf" style="display:none;">Confiança: --</div>
+      <div class="viewport-btns">
+        <button id="btnToggleVideo" class="viewport-btn" onclick="toggleVideoVisibility()" style="display:none;">
+          <span id="btnToggleVideoLabel">Ocultar vídeo</span>
+        </button>
+        <button id="btnFullscreen" class="viewport-btn" onclick="toggleFullscreen()" title="Tela cheia (F ou duplo clique)">⛶ Tela cheia</button>
+      </div>
+      <!-- Barra REC flutuante (visível também em tela cheia) -->
+      <div class="rec-float" id="recFloat">
+        <div class="rec-dot"></div>
+        <span id="recFloatTimer">00:00</span>
+        <button onclick="stopRecFromFloat()">⏹ Parar</button>
+      </div>
     </div>
   </div>
 
@@ -449,17 +533,51 @@
     </div>
 
     <div class="panel">
-      <div class="panel-title">Pessoas</div>
+      <div class="panel-title">Pessoas &amp; desempenho</div>
       <div class="range-row" style="margin-top:0;">
         <label>Máx. de pessoas</label>
-        <input type="range" min="1" max="6" value="4" id="numPeopleR" oninput="onNumPeopleChange(+this.value)">
-        <span id="numPeopleV">4</span>
+        <input type="range" min="1" max="6" value="2" id="numPeopleR" oninput="onNumPeopleChange(+this.value)">
+        <span id="numPeopleV">2</span>
+      </div>
+      <div style="margin-top:10px;">
+        <div class="panel-title" style="margin-bottom:6px;">Qualidade do modelo</div>
+        <select id="qualitySel" class="sel" onchange="onQualityChange(this.value)">
+          <option value="lite" selected>Rápido (lite) — recomendado</option>
+          <option value="full">Equilibrado (full)</option>
+          <option value="heavy">Preciso (heavy) — lento</option>
+        </select>
       </div>
       <div style="margin-top:10px;">
         <div class="panel-title" style="margin-bottom:6px;">Painéis (ângulos/keypoints)</div>
         <select id="personSel" class="sel"></select>
       </div>
       <div id="personCount" style="margin-top:8px; font-size:11px; color:var(--text2);">0 pessoa(s) detectada(s)</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Modo espelho — vídeo referência</div>
+      <input type="file" id="refFile" accept="video/*" style="display:none;">
+      <button class="btn btn-secondary" onclick="document.getElementById('refFile').click()">📂 Carregar vídeo referência</button>
+      <button class="btn btn-secondary" id="btnRefClose" style="display:none;" onclick="closeRefMode()">✕ Fechar referência</button>
+      <div style="font-size:10px;color:var(--text2);margin-top:8px;line-height:1.5;">
+        Reproduza um vídeo (aula, coreografia, exercício) lado a lado e receba a <b>pontuação de semelhança</b> dos seus movimentos em tempo real.
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Exercícios — contador de repetições</div>
+      <select id="exSelect" class="sel" onchange="setExercise(this.value)">
+        <option value="none" selected>— desativado —</option>
+        <option value="squat">Agachamento</option>
+        <option value="jack">Polichinelo</option>
+        <option value="curl">Flexão de cotovelo</option>
+        <option value="raise">Elevação de braços</option>
+      </select>
+      <div class="angle-card" style="margin-top:8px;">
+        <div class="val" id="repCount">0</div>
+        <div class="lbl" id="repPhase">repetições</div>
+      </div>
+      <button class="btn btn-secondary" style="margin-top:8px;font-size:11px;padding:7px;" onclick="resetReps()">Zerar contador</button>
     </div>
 
     <div class="panel">
@@ -519,7 +637,10 @@
         <span class="rec-timer" id="recTimer">00:00</span>
       </div>
       <div id="exportSection" style="display:none; margin-top:8px;">
-        <div class="panel-title" style="margin-bottom:8px;">Exportar</div>
+        <div class="panel-title" style="margin-bottom:8px;">Exportar / revisar</div>
+        <button class="btn btn-secondary" id="btnPlayback" onclick="openPlayback()" style="font-size:12px;">
+          ▶ Reproduzir captura (esqueleto)
+        </button>
         <button class="btn btn-secondary" id="btnExportMP4" onclick="exportMP4()" style="font-size:12px;">
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="1" y="2" width="8" height="9" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M9 5l3-2v7l-3-2V5z" fill="currentColor"/></svg>
           Salvar MP4
@@ -527,6 +648,7 @@
         <div class="export-row">
           <button class="btn btn-secondary" id="btnExportCSV" onclick="exportCSV()" style="font-size:11px;">CSV</button>
           <button class="btn btn-secondary" id="btnExportJSON" onclick="exportJSON()" style="font-size:11px;">JSON</button>
+          <button class="btn btn-secondary" id="btnExportBVH" onclick="exportBVH()" style="font-size:11px;" title="Esqueleto animado para Blender/3D">BVH</button>
         </div>
         <div id="mp4Status" style="display:none; margin-top:8px; padding:7px 10px; background:rgba(0,229,160,0.08); border:1px solid rgba(0,229,160,0.2); border-radius:6px; font-size:11px; color:var(--accent); line-height:1.5;"></div>
       </div>
@@ -540,16 +662,34 @@
   <span style="margin-left:auto;" id="kpCount">0 keypoints detectados</span>
 </footer>
 
+<!-- Modal de reprodução da captura (esqueleto quadro a quadro) -->
+<div id="pbModal">
+  <canvas id="pbCanvas" width="960" height="540"></canvas>
+  <div class="pb-controls">
+    <button class="btn btn-secondary" id="pbPlayBtn" onclick="pbTogglePlay()">▶ Reproduzir</button>
+    <input type="range" id="pbSlider" min="0" max="0" value="0" oninput="pbSeek(+this.value)">
+    <span id="pbTime">00:00 · q 0</span>
+    <button class="btn btn-secondary" onclick="closePlayback()">✕ Fechar</button>
+  </div>
+</div>
+
 <script type="module">
 import { PoseLandmarker, FaceLandmarker, FilesetResolver }
   from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/vision_bundle.mjs";
 
-const WASM_URL  = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm";
-const POSE_MODEL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task";
+const WASM_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm";
+/* Modelos de pose por qualidade. O "lite" é ~3x mais rápido que o
+   "full" e é o que garante movimento fluido com várias pessoas. */
+const POSE_MODELS = {
+  lite:  "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
+  full:  "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task",
+  heavy: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/1/pose_landmarker_heavy.task"
+};
 const FACE_MODEL = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
 
 const videoEl = document.getElementById('videoEl');
 const viewport = document.getElementById('viewport');
+const livePane = document.getElementById('livePane');
 const canvas = document.getElementById('overlayCanvas');
 const ctx = canvas.getContext('2d');
 const placeholder = document.getElementById('placeholder');
@@ -562,17 +702,22 @@ const hudFps = document.getElementById('hudFps');
 const hudConf = document.getElementById('hudConf');
 const loadingOverlay = document.getElementById('loadingOverlay');
 
+let fileset = null;
 let poseLandmarker = null;
 let faceLandmarker = null;
+let modelQuality = 'lite';
 let fps = 0;
 let frameCount = 0;
+let frameIdx = 0;
 let fpsInterval = null;
 let lastVideoTime = -1;
 let lastFaces = [];
-let numPeople = 4;
+let numPeople = 2;
 let watchedPerson = 0;   // pessoa exibida nos painéis de ângulos/keypoints
 let cameraRunning = false;
 let detecting = false;
+let rafId = null;
+let lastUiUpdate = 0;    // throttle das atualizações de DOM (painéis laterais)
 
 let showSkeleton = true;
 let showPoints = true;
@@ -590,6 +735,7 @@ let mediaRecorder = null;
 let recordedChunks = [];
 let recStream = null;
 let recVideoTrack = null;
+let lastCompose = 0;
 let pipWindow = null;
 let popupWindow = null;
 const recordCanvas = document.getElementById('recordCanvas');
@@ -598,13 +744,18 @@ const recordCtx = recordCanvas.getContext('2d');
 const angleHistory = { kneeL: [], kneeR: [], elbL: [], elbR: [] };
 const HIST = 60;
 
-/* ── Ticker via Web Worker ─────────────────────────────
-   requestAnimationFrame e setInterval são REDUZIDOS a ~1 fps
-   quando a aba fica em segundo plano (ex.: usuário abre o
-   YouTube em outra aba). Timers dentro de Web Workers NÃO
-   sofrem esse throttling, então o worker envia "ticks" de
-   ~33 ms que mantêm a detecção de pose E a gravação rodando
-   normalmente mesmo com a aba oculta. */
+/* ── Loop de processamento ─────────────────────────────
+   Dois "motores" alimentam o mesmo processFrame():
+   1. requestAnimationFrame — roda a até 60 Hz quando a aba
+      está VISÍVEL, sincronizado com o refresh do monitor
+      (movimento fluido, sem picote);
+   2. Web Worker com setInterval de 33 ms — timers de worker
+      NÃO sofrem o throttling que o navegador aplica a abas
+      em segundo plano, então detecção e gravação continuam
+      quando o usuário troca de aba (ex.: YouTube).
+   As guardas (detecting / lastVideoTime) garantem que cada
+   frame da câmera é processado uma única vez, não importa
+   qual motor disparou primeiro. */
 const tickerWorker = new Worker(URL.createObjectURL(new Blob([`
   let id = null;
   onmessage = e => {
@@ -617,12 +768,29 @@ tickerWorker.onmessage = () => {
   if (isRecording) composeRecordFrame();
 };
 
+function rafLoop() {
+  if (!cameraRunning && !refActive) { rafId = null; return; }
+  processFrame();
+  if (isRecording) composeRecordFrame();
+  rafId = requestAnimationFrame(rafLoop);
+}
+function ensureLoops() {
+  tickerWorker.postMessage('start');
+  if (!rafId) rafId = requestAnimationFrame(rafLoop);
+}
+function stopLoopsIfIdle() {
+  if (!cameraRunning && !refActive) {
+    tickerWorker.postMessage('stop');
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  }
+}
+
 function toggleVis(type, btn) {
   btn.classList.toggle('active');
   if (type === 'skeleton') showSkeleton = !showSkeleton;
   if (type === 'points')   showPoints   = !showPoints;
   if (type === 'mesh')     showMesh     = !showMesh;
-  if (type === 'face')     showFace     = !showFace;
+  if (type === 'face')     { showFace = !showFace; if (!showFace) lastFaces = []; }
 }
 
 function toggleVideoVisibility() {
@@ -636,7 +804,7 @@ function toggleFullscreen() {
   if (document.fullscreenElement) document.exitFullscreen();
   else viewport.requestFullscreen().catch(()=>{});
 }
-viewport.addEventListener('dblclick', toggleFullscreen);
+livePane.addEventListener('dblclick', toggleFullscreen);
 document.addEventListener('keydown', e => {
   if ((e.key === 'f' || e.key === 'F') && !e.ctrlKey && !e.altKey && !e.metaKey
       && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName || '')) toggleFullscreen();
@@ -788,9 +956,8 @@ function drawAngleChart() {
    as coordenadas normalizadas [0..1] para dentro dele.
    O vídeo tem transform:scaleX(-1) (espelho), por isso
    toX usa (1 - nx). ─────────────────────────────── */
-function getContainRect() {
-  const dispW = viewport.clientWidth, dispH = viewport.clientHeight;
-  const vw = videoEl.videoWidth, vh = videoEl.videoHeight;
+function containRect(el, vw, vh) {
+  const dispW = el.clientWidth, dispH = el.clientHeight;
   if (!vw || !vh) return { ox:0, oy:0, w:dispW, h:dispH, dispW, dispH };
   const s = Math.min(dispW/vw, dispH/vh);
   const w = vw*s, h = vh*s;
@@ -798,30 +965,43 @@ function getContainRect() {
 }
 
 function processFrame() {
-  if (!cameraRunning || detecting || !poseLandmarker || videoEl.readyState < 2) return;
-  if (videoEl.currentTime === lastVideoTime) return;
-  lastVideoTime = videoEl.currentTime;
+  if (detecting) return;
   detecting = true;
   try {
     const ts = performance.now();
-    const poseResult = poseLandmarker.detectForVideo(videoEl, ts);
-    if (faceLandmarker && showFace) {
-      const faceResult = faceLandmarker.detectForVideo(videoEl, ts);
-      lastFaces = faceResult.faceLandmarks || [];
-    } else if (!showFace) {
-      lastFaces = [];
+    // Câmera ao vivo
+    if (cameraRunning && poseLandmarker && videoEl.readyState >= 2 && videoEl.currentTime !== lastVideoTime) {
+      lastVideoTime = videoEl.currentTime;
+      frameIdx++;
+      const poseResult = poseLandmarker.detectForVideo(videoEl, ts);
+      /* Rosto processado a cada 2 quadros: corta o custo pela metade
+         sem diferença visual perceptível (expressões mudam devagar). */
+      if (faceLandmarker && showFace && frameIdx % 2 === 0) {
+        const faceResult = faceLandmarker.detectForVideo(videoEl, ts);
+        lastFaces = faceResult.faceLandmarks || [];
+      }
+      renderResults(poseResult.landmarks || [], poseResult.worldLandmarks || []);
     }
-    renderResults(poseResult.landmarks || []);
+    // Vídeo de referência (modo espelho)
+    if (refActive && refLandmarker && refVideo.readyState >= 2 && !refVideo.paused && refVideo.currentTime !== lastRefTime) {
+      lastRefTime = refVideo.currentTime;
+      const r = refLandmarker.detectForVideo(refVideo, ts + 0.001);
+      refLandmarks = (r.landmarks && r.landmarks[0]) || null;
+      drawRefOverlay();
+    }
   } catch(e) {
     console.error('Erro na detecção:', e);
   }
   detecting = false;
 }
 
-function renderResults(persons) {
-  const rect = getContainRect();
-  canvas.width  = rect.dispW;
-  canvas.height = rect.dispH;
+function renderResults(persons, worldPersons) {
+  const rect = containRect(livePane, videoEl.videoWidth, videoEl.videoHeight);
+  /* Redimensionar canvas é caro (realoca e limpa o buffer):
+     só fazemos quando o tamanho realmente mudou. */
+  if (canvas.width !== rect.dispW || canvas.height !== rect.dispH) {
+    canvas.width = rect.dispW; canvas.height = rect.dispH;
+  }
 
   const toX = nx => rect.ox + (1 - nx) * rect.w;
   const toY = ny => rect.oy + ny * rect.h;
@@ -831,6 +1011,10 @@ function renderResults(persons) {
     ctx.fillStyle = '#0a0c10';
     ctx.fillRect(0, 0, rect.dispW, rect.dispH);
   }
+
+  const nowMs = performance.now();
+  const uiDue = nowMs - lastUiUpdate > 150;  // painéis laterais a ~6 Hz
+  if (uiDue) lastUiUpdate = nowMs;
 
   if (persons.length > 0) {
     let confSum = 0, confN = 0;
@@ -888,40 +1072,51 @@ function renderResults(persons) {
       lastFaces.forEach(f => drawFaceMesh(f, toX, toY));
     }
 
-    const avgConf = confN ? confSum/confN : 0;
-    hudConf.style.display='block';
-    hudConf.textContent=`Confiança: ${Math.round(avgConf*100)}% · ${persons.length} pessoa(s)`;
-    statusDot.className='status-dot tracking';
-    statusLabel.textContent=`Rastreando ${persons.length} pessoa(s)`;
-    document.getElementById('personCount').textContent = `${persons.length} pessoa(s) detectada(s)`;
-
     const watched = persons[Math.min(watchedPerson, persons.length-1)] || [];
-    const activeKp = persons.reduce((s,lm)=>s+lm.filter(p=>(p.visibility??1)>0.5).length,0);
-    document.getElementById('kpCount').textContent = `${activeKp} keypoints detectados`;
-    updateKPGrid(watched);
-    updateAngles(watched);
+
+    // Estas contas são baratas e precisam rodar a cada quadro:
+    updateReps(watched);
+
+    // DOM só a ~6 Hz — reconstruir HTML a 30/60 Hz derrubava o FPS
+    if (uiDue) {
+      const avgConf = confN ? confSum/confN : 0;
+      hudConf.style.display='block';
+      hudConf.textContent=`Confiança: ${Math.round(avgConf*100)}% · ${persons.length} pessoa(s)`;
+      statusDot.className='status-dot tracking';
+      statusLabel.textContent=`Rastreando ${persons.length} pessoa(s)`;
+      document.getElementById('personCount').textContent = `${persons.length} pessoa(s) detectada(s)`;
+      const activeKp = persons.reduce((s,lm)=>s+lm.filter(p=>(p.visibility??1)>0.5).length,0);
+      document.getElementById('kpCount').textContent = `${activeKp} keypoints detectados`;
+      updateKPGrid(watched);
+      updateAngles(watched);
+      updateSimScore(watched);
+    }
 
     if (isRecording) {
       recordedFrames.push({
         t: Date.now()-recStartTime,
-        persons: persons.map(lm => lm.map(p=>({x:+p.x.toFixed(4),y:+p.y.toFixed(4),z:+p.z.toFixed(4),v:+((p.visibility??0)).toFixed(3)})))
+        persons: persons.map(lm => lm.map(p=>({x:+p.x.toFixed(4),y:+p.y.toFixed(4),z:+p.z.toFixed(4),v:+((p.visibility??0)).toFixed(3)}))),
+        world: (worldPersons||[]).map(lm => lm.map(p=>({x:+p.x.toFixed(4),y:+p.y.toFixed(4),z:+p.z.toFixed(4),v:+((p.visibility??0)).toFixed(3)})))
       });
     }
-  } else {
+  } else if (uiDue) {
     statusDot.className='status-dot live';
     statusLabel.textContent='Câmera ativa · sem pose';
     hudConf.style.display='none';
     document.getElementById('personCount').textContent = '0 pessoa(s) detectada(s)';
     document.getElementById('kpCount').textContent = '0 keypoints detectados';
     updateKPGrid([]);
+    updateSimScore(null);
   }
 
   frameCount++;
-  hudFps.style.display='block';
-  hudFps.textContent=`${fps} FPS`;
+  if (uiDue) {
+    hudFps.style.display='block';
+    hudFps.textContent=`${fps} FPS`;
+  }
 }
 
-/* ── Nº de pessoas ─────────────────────────────────── */
+/* ── Nº de pessoas / qualidade do modelo ───────────── */
 function refreshPersonSel() {
   const sel = document.getElementById('personSel');
   sel.innerHTML = Array.from({length:numPeople},(_,i)=>`<option value="${i}">Pessoa ${i+1}</option>`).join('');
@@ -940,6 +1135,33 @@ async function onNumPeopleChange(n) {
   } catch(e) { console.error('Erro ao ajustar nº de pessoas:', e); }
 }
 
+async function onQualityChange(q) {
+  if (q === modelQuality || !fileset) return;
+  modelQuality = q;
+  const sel = document.getElementById('qualitySel');
+  sel.disabled = true;
+  statusLabel.textContent = 'Trocando modelo...';
+  const old = poseLandmarker;
+  poseLandmarker = null;              // pausa a detecção durante a troca
+  try { if (old) old.close(); } catch(_){}
+  try {
+    poseLandmarker = await createLandmarker(PoseLandmarker, fileset, {
+      baseOptions: { modelAssetPath: POSE_MODELS[modelQuality] },
+      runningMode: 'VIDEO',
+      numPoses: numPeople,
+      minPoseDetectionConfidence: 0.5,
+      minPosePresenceConfidence: 0.5,
+      minTrackingConfidence: 0.5
+    });
+    lastVideoTime = -1;
+    statusLabel.textContent = cameraRunning ? 'Câmera ativa' : 'Modelo trocado';
+  } catch(e) {
+    statusLabel.textContent = 'Erro ao trocar modelo';
+    console.error(e);
+  }
+  sel.disabled = false;
+}
+
 /* ── Inicialização dos modelos ─────────────────────── */
 let faceMeshFailed = false;
 let skipFaceMeshRequested = false;
@@ -950,17 +1172,17 @@ function skipFaceMesh() {
   document.getElementById('btnSkipFace').textContent = 'Pulando...';
 }
 
-async function createLandmarker(cls, fileset, opts) {
+async function createLandmarker(cls, fs, opts) {
   // Tenta GPU primeiro; alguns computadores só funcionam com CPU.
   try {
-    return await cls.createFromOptions(fileset, { ...opts, baseOptions: { ...opts.baseOptions, delegate: 'GPU' } });
+    return await cls.createFromOptions(fs, { ...opts, baseOptions: { ...opts.baseOptions, delegate: 'GPU' } });
   } catch(e) {
     console.warn('GPU indisponível, usando CPU:', e);
-    return await cls.createFromOptions(fileset, { ...opts, baseOptions: { ...opts.baseOptions, delegate: 'CPU' } });
+    return await cls.createFromOptions(fs, { ...opts, baseOptions: { ...opts.baseOptions, delegate: 'CPU' } });
   }
 }
 
-async function initFaceLandmarker(fileset) {
+async function initFaceLandmarker() {
   document.getElementById('step2icon').textContent='⏳';
   document.getElementById('step2txt').textContent='Face Landmarker — carregando...';
   document.getElementById('loadingMsg').textContent='Carregando Face Landmarker...';
@@ -1003,9 +1225,9 @@ async function initModels() {
   try {
     document.getElementById('step1icon').textContent='⏳';
     document.getElementById('step1txt').textContent='Pose Landmarker — carregando...';
-    const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
+    fileset = await FilesetResolver.forVisionTasks(WASM_URL);
     poseLandmarker = await createLandmarker(PoseLandmarker, fileset, {
-      baseOptions: { modelAssetPath: POSE_MODEL },
+      baseOptions: { modelAssetPath: POSE_MODELS[modelQuality] },
       runningMode: 'VIDEO',
       numPoses: numPeople,
       minPoseDetectionConfidence: 0.5,
@@ -1015,7 +1237,7 @@ async function initModels() {
     POSE_CONNECTIONS = (PoseLandmarker.POSE_CONNECTIONS || []).map(c => [c.start, c.end]);
     document.getElementById('step1icon').textContent='✅';
     document.getElementById('step1txt').textContent='Pose Landmarker — pronto (multi-pessoa)';
-    await initFaceLandmarker(fileset);
+    await initFaceLandmarker();
     loadingOverlay.classList.add('hidden');
     if (!faceMeshFailed && !skipFaceMeshRequested) {
       document.getElementById('modelStatus').textContent='Pose + Face prontos (multi-pessoa)';
@@ -1065,7 +1287,7 @@ async function startStream(deviceId) {
 function startProcessing() {
   cameraRunning = true;
   lastVideoTime = -1;
-  tickerWorker.postMessage('start');
+  ensureLoops();
   clearInterval(fpsInterval);
   fpsInterval = setInterval(()=>{fps=frameCount;frameCount=0;},1000);
 }
@@ -1102,8 +1324,8 @@ document.getElementById('camSelect').addEventListener('change', async()=>{
 
 btnStop.addEventListener('click',()=>{
   cameraRunning=false;
-  tickerWorker.postMessage('stop');
   if(isRecording) toggleRec();
+  stopLoopsIfIdle();
   if(videoEl.srcObject){videoEl.srcObject.getTracks().forEach(t=>t.stop());videoEl.srcObject=null;}
   videoEl.style.display='none';
   placeholder.style.display='flex';
@@ -1118,9 +1340,176 @@ btnStop.addEventListener('click',()=>{
   if(mediaRecorder&&mediaRecorder.state!=='inactive'){mediaRecorder.stop();mediaRecorder=null;}
 });
 
+/* ── Modo espelho (vídeo de referência) ────────────── */
+const refPane = document.getElementById('refPane');
+const refVideo = document.getElementById('refVideo');
+const refCanvas = document.getElementById('refCanvas');
+const refCtx = refCanvas.getContext('2d');
+let refLandmarker = null;
+let refLandmarks = null;
+let refActive = false;
+let lastRefTime = -1;
+let refUrl = null;
+
+async function ensureRefLandmarker() {
+  if (refLandmarker || !fileset) return;
+  refLandmarker = await createLandmarker(PoseLandmarker, fileset, {
+    baseOptions: { modelAssetPath: POSE_MODELS.lite },
+    runningMode: 'VIDEO',
+    numPoses: 1,
+    minPoseDetectionConfidence: 0.5,
+    minPosePresenceConfidence: 0.5,
+    minTrackingConfidence: 0.5
+  });
+}
+
+document.getElementById('refFile').addEventListener('change', async e=>{
+  const file = e.target.files[0];
+  if (!file) return;
+  try { await ensureRefLandmarker(); }
+  catch(err) { console.error('Falha ao criar detector de referência:', err); return; }
+  if (refUrl) URL.revokeObjectURL(refUrl);
+  refUrl = URL.createObjectURL(file);
+  refVideo.src = refUrl;
+  refActive = true;
+  lastRefTime = -1;
+  viewport.classList.add('ref-on');
+  document.getElementById('btnRefClose').style.display='flex';
+  document.getElementById('simScore').style.display='block';
+  refVideo.play().catch(()=>{});
+  ensureLoops();
+});
+
+function closeRefMode() {
+  refActive = false;
+  refVideo.pause();
+  refLandmarks = null;
+  viewport.classList.remove('ref-on');
+  document.getElementById('btnRefClose').style.display='none';
+  document.getElementById('simScore').style.display='none';
+  refCtx.clearRect(0,0,refCanvas.width,refCanvas.height);
+  stopLoopsIfIdle();
+}
+
+function drawRefOverlay() {
+  const rect = containRect(refPane, refVideo.videoWidth, refVideo.videoHeight);
+  if (refCanvas.width !== rect.dispW || refCanvas.height !== rect.dispH) {
+    refCanvas.width = rect.dispW; refCanvas.height = rect.dispH;
+  }
+  refCtx.clearRect(0,0,rect.dispW,rect.dispH);
+  if (!refLandmarks) return;
+  const toX = nx => rect.ox + nx * rect.w;   // referência não é espelhada
+  const toY = ny => rect.oy + ny * rect.h;
+  refCtx.save();
+  refCtx.globalAlpha = 0.85;
+  POSE_CONNECTIONS.forEach(([a,b])=>{
+    const pa=refLandmarks[a],pb=refLandmarks[b]; if(!pa||!pb) return;
+    if((pa.visibility??1)<0.3||(pb.visibility??1)<0.3) return;
+    refCtx.beginPath(); refCtx.strokeStyle='rgba(255,201,71,0.9)'; refCtx.lineWidth=2; refCtx.lineCap='round';
+    refCtx.moveTo(toX(pa.x),toY(pa.y)); refCtx.lineTo(toX(pb.x),toY(pb.y)); refCtx.stroke();
+  });
+  refLandmarks.forEach(p=>{
+    if((p.visibility??1)<0.3) return;
+    refCtx.beginPath(); refCtx.fillStyle='#ffc947';
+    refCtx.arc(toX(p.x),toY(p.y),3.5,0,Math.PI*2); refCtx.fill();
+  });
+  refCtx.restore();
+}
+
+/* Pontuação de semelhança: compara 8 ângulos articulares
+   (cotovelos, joelhos, ombros, quadris) entre a pessoa ao vivo
+   e a pessoa do vídeo. Como quem imita um vídeo age "em espelho"
+   (o braço esquerdo imita o direito do vídeo), testamos também a
+   versão com esquerda/direita trocadas e usamos a melhor. */
+const SIM_DEFS = [[11,13,15],[12,14,16],[23,25,27],[24,26,28],[13,11,23],[14,12,24],[11,23,25],[12,24,26]];
+const SIM_SWAP = [[12,14,16],[11,13,15],[24,26,28],[23,25,27],[14,12,24],[13,11,23],[12,24,26],[11,23,25]];
+
+function anglesOf(lm, defs) {
+  return defs.map(([a,b,c])=>{
+    const pa=lm[a],pb=lm[b],pc=lm[c];
+    if(!pa||!pb||!pc) return null;
+    if((pa.visibility??1)<0.5||(pb.visibility??1)<0.5||(pc.visibility??1)<0.5) return null;
+    return angle3(pa,pb,pc);
+  });
+}
+function cmpAngles(a,b) {
+  let s=0,n=0;
+  a.forEach((v,i)=>{ if(v==null||b[i]==null) return; s+=Math.max(0,1-Math.abs(v-b[i])/90); n++; });
+  return n ? Math.round(s/n*100) : null;
+}
+function updateSimScore(liveLm) {
+  if (!refActive) return;
+  const el = document.getElementById('simScoreVal');
+  let score = null;
+  if (liveLm && liveLm.length && refLandmarks) {
+    const live = anglesOf(liveLm, SIM_DEFS);
+    const s1 = cmpAngles(live, anglesOf(refLandmarks, SIM_DEFS));
+    const s2 = cmpAngles(live, anglesOf(refLandmarks, SIM_SWAP));
+    score = Math.max(s1 ?? -1, s2 ?? -1);
+    if (score < 0) score = null;
+  }
+  if (score == null) { el.textContent='--'; el.className='val'; return; }
+  el.textContent = score + '%';
+  el.className = 'val ' + (score >= 80 ? 'good' : score >= 55 ? 'mid' : 'bad');
+}
+
+/* ── Contador de repetições ────────────────────────── */
+let exercise = 'none', repCount = 0, repState = 'rest';
+
+function setExercise(v) {
+  exercise = v;
+  resetReps();
+}
+function resetReps() {
+  repCount = 0; repState = 'rest';
+  document.getElementById('repCount').textContent = '0';
+  document.getElementById('repPhase').textContent = 'repetições';
+}
+function updateReps(lm) {
+  if (exercise === 'none' || !lm || !lm.length) return;
+  const vis = i => lm[i] && (lm[i].visibility ?? 1) > 0.5;
+  let effort = false, rest = false;
+
+  if (exercise === 'squat') {
+    if (!(vis(23)&&vis(25)&&vis(27)&&vis(24)&&vis(26)&&vis(28))) return;
+    const k = (angle3(lm[23],lm[25],lm[27]) + angle3(lm[24],lm[26],lm[28])) / 2;
+    effort = k < 110;  rest = k > 160;
+  } else if (exercise === 'curl') {
+    if (!(vis(11)&&vis(13)&&vis(15)&&vis(12)&&vis(14)&&vis(16))) return;
+    const e = (angle3(lm[11],lm[13],lm[15]) + angle3(lm[12],lm[14],lm[16])) / 2;
+    effort = e < 70;   rest = e > 150;
+  } else if (exercise === 'raise') {
+    if (!(vis(0)&&vis(11)&&vis(12)&&vis(15)&&vis(16))) return;
+    effort = lm[15].y < lm[0].y && lm[16].y < lm[0].y;          // pulsos acima da cabeça
+    rest   = lm[15].y > lm[11].y && lm[16].y > lm[12].y;        // pulsos abaixo dos ombros
+  } else if (exercise === 'jack') {
+    if (!(vis(0)&&vis(11)&&vis(12)&&vis(15)&&vis(16)&&vis(27)&&vis(28))) return;
+    const shoulderW = Math.abs(lm[11].x - lm[12].x);
+    const ankleW = Math.abs(lm[27].x - lm[28].x);
+    const armsUp = lm[15].y < lm[0].y && lm[16].y < lm[0].y;
+    effort = armsUp && ankleW > shoulderW * 1.4;                // aberto
+    rest   = !armsUp && ankleW < shoulderW * 1.1;               // fechado
+  }
+
+  if (repState === 'rest' && effort) {
+    repState = 'effort';
+    document.getElementById('repPhase').textContent = 'executando...';
+  } else if (repState === 'effort' && rest) {
+    repState = 'rest';
+    repCount++;
+    document.getElementById('repCount').textContent = String(repCount);
+    document.getElementById('repPhase').textContent = 'repetições';
+  }
+}
+
 /* ── Gravação (continua em segundo plano) ──────────── */
 function composeRecordFrame() {
   if(!isRecording) return;
+  /* Evita compor o mesmo frame duas vezes quando o rAF e o
+     worker disparam quase juntos (limita a ~40 fps). */
+  const n = performance.now();
+  if (n - lastCompose < 25) return;
+  lastCompose = n;
   const W=videoEl.videoWidth||canvas.width, H=videoEl.videoHeight||canvas.height;
   if(recordCanvas.width!==W||recordCanvas.height!==H){recordCanvas.width=W;recordCanvas.height=H;}
   if(window.showVideo){
@@ -1131,7 +1520,7 @@ function composeRecordFrame() {
   }
   // O overlay está letterboxed no canvas de exibição: copia só a
   // região do vídeo (rect) esticada para o tamanho nativo do frame.
-  const rect=getContainRect();
+  const rect=containRect(livePane, videoEl.videoWidth, videoEl.videoHeight);
   if(rect.w>0&&rect.h>0) recordCtx.drawImage(canvas, rect.ox, rect.oy, rect.w, rect.h, 0, 0, W, H);
   // captureStream(0) só emite frame quando pedimos explicitamente —
   // funciona mesmo com a aba em segundo plano.
@@ -1144,8 +1533,8 @@ function getSupportedMimeType() {
   return types.find(t=>MediaRecorder.isTypeSupported(t))||'';
 }
 
-function fmtTimer() {
-  const s=Math.floor((Date.now()-recStartTime)/1000),m=Math.floor(s/60);
+function fmtTimer(ms) {
+  const s=Math.floor(ms/1000),m=Math.floor(s/60);
   return `${String(m).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
 }
 
@@ -1153,7 +1542,7 @@ function toggleRec() {
   isRecording=!isRecording;
   const ind=document.getElementById('recIndicator');
   if(isRecording){
-    recordedFrames=[]; recordedChunks=[]; recStartTime=Date.now();
+    recordedFrames=[]; recordedChunks=[]; recStartTime=Date.now(); lastCompose=0;
     ind.classList.remove('hidden');
     document.getElementById('recFloat').classList.add('on');
     document.getElementById('exportSection').style.display='none';
@@ -1167,7 +1556,7 @@ function toggleRec() {
     mediaRecorder.start(100);
     composeRecordFrame();
     recTimerInterval=setInterval(()=>{
-      const t=fmtTimer();
+      const t=fmtTimer(Date.now()-recStartTime);
       document.getElementById('recTimer').textContent=t;
       document.getElementById('recFloatTimer').textContent=t;
       try{ const el=pipWindow&&pipWindow.document.getElementById('pipTimer'); if(el) el.textContent=t; }catch(_){}
@@ -1249,6 +1638,79 @@ function closeRecFloatWindow() {
   pipWindow = null; popupWindow = null;
 }
 
+/* ── Reprodução da captura (esqueleto) ─────────────── */
+const pbModal = document.getElementById('pbModal');
+const pbCanvas = document.getElementById('pbCanvas');
+const pbCtx = pbCanvas.getContext('2d');
+let pbIdx = 0, pbPlaying = false, pbTimer = null;
+
+function openPlayback() {
+  if (!recordedFrames.length) return;
+  pbModal.style.display = 'flex';
+  const slider = document.getElementById('pbSlider');
+  slider.max = recordedFrames.length - 1;
+  pbSeek(0);
+}
+function closePlayback() {
+  pbPlaying = false;
+  clearInterval(pbTimer);
+  document.getElementById('pbPlayBtn').textContent = '▶ Reproduzir';
+  pbModal.style.display = 'none';
+}
+function pbSeek(i) {
+  pbIdx = Math.max(0, Math.min(i, recordedFrames.length - 1));
+  document.getElementById('pbSlider').value = pbIdx;
+  drawPbFrame();
+}
+function pbTogglePlay() {
+  pbPlaying = !pbPlaying;
+  const btn = document.getElementById('pbPlayBtn');
+  if (pbPlaying) {
+    btn.textContent = '⏸ Pausar';
+    if (pbIdx >= recordedFrames.length - 1) pbIdx = 0;
+    const start = performance.now() - recordedFrames[pbIdx].t;
+    pbTimer = setInterval(() => {
+      const el = performance.now() - start;
+      while (pbIdx < recordedFrames.length - 1 && recordedFrames[pbIdx + 1].t <= el) pbIdx++;
+      document.getElementById('pbSlider').value = pbIdx;
+      drawPbFrame();
+      if (pbIdx >= recordedFrames.length - 1) pbTogglePlay();
+    }, 33);
+  } else {
+    btn.textContent = '▶ Reproduzir';
+    clearInterval(pbTimer);
+  }
+}
+function drawPbFrame() {
+  const f = recordedFrames[pbIdx];
+  if (!f) return;
+  const W = pbCanvas.width, H = pbCanvas.height;
+  pbCtx.fillStyle = '#0a0c10';
+  pbCtx.fillRect(0, 0, W, H);
+  const toX = nx => (1 - nx) * W;   // mesmo espelho da tela ao vivo
+  const toY = ny => ny * H;
+  f.persons.forEach((lm, pi) => {
+    const color = PERSON_COLORS[pi % PERSON_COLORS.length];
+    POSE_CONNECTIONS.forEach(([a,b])=>{
+      const pa=lm[a],pb=lm[b]; if(!pa||!pb) return;
+      if((pa.v??1)<0.3||(pb.v??1)<0.3) return;
+      pbCtx.beginPath(); pbCtx.strokeStyle=rgba(color,0.9); pbCtx.lineWidth=2; pbCtx.lineCap='round';
+      pbCtx.moveTo(toX(pa.x),toY(pa.y)); pbCtx.lineTo(toX(pb.x),toY(pb.y)); pbCtx.stroke();
+    });
+    lm.forEach(p=>{
+      if((p.v??1)<0.3) return;
+      pbCtx.beginPath(); pbCtx.fillStyle=color;
+      pbCtx.arc(toX(p.x),toY(p.y),3.5,0,Math.PI*2); pbCtx.fill();
+    });
+    const nose=lm[0];
+    if(nose&&(nose.v??1)>0.3){
+      pbCtx.font='700 12px monospace'; pbCtx.fillStyle=color;
+      pbCtx.fillText('P'+(pi+1), toX(nose.x)-8, toY(nose.y)-16);
+    }
+  });
+  document.getElementById('pbTime').textContent = `${fmtTimer(f.t)} · q ${pbIdx+1}/${recordedFrames.length}`;
+}
+
 /* ── Exportação ────────────────────────────────────── */
 function exportMP4() {
   if(!recordedChunks.length) return;
@@ -1282,8 +1744,255 @@ function exportCSV() {
 
 function exportJSON() {
   if(!recordedFrames.length) return;
-  const data={metadata:{source:'MoCapWeb CECAPE',model:'MediaPipe Pose Landmarker (multi-pessoa)',maxPeople:numPeople,keypoints:KP_NAMES,frames:recordedFrames.length},frames:recordedFrames};
+  const data={metadata:{source:'MoCapWeb CECAPE',model:'MediaPipe Pose Landmarker (multi-pessoa)',quality:modelQuality,maxPeople:numPeople,keypoints:KP_NAMES,frames:recordedFrames.length,coords:{persons:'normalizado [0..1] da imagem',world:'metros, origem no centro dos quadris'}},frames:recordedFrames};
   download('mocap_data.json',JSON.stringify(data,null,2),'application/json');
+}
+
+/* ── Exportação BVH ─────────────────────────────────────
+   Converte os world landmarks (metros, origem nos quadris)
+   em um esqueleto BVH animado, importável no Blender
+   (File → Import → Motion Capture .bvh) e em outros 3D.
+   As rotações são aproximadas a partir das direções dos
+   ossos (sem "twist"), o que é suficiente para retarget
+   e pré-visualização de animação. */
+const V = {
+  sub:(a,b)=>({x:a.x-b.x,y:a.y-b.y,z:a.z-b.z}),
+  mid:(a,b)=>({x:(a.x+b.x)/2,y:(a.y+b.y)/2,z:(a.z+b.z)/2}),
+  len:v=>Math.hypot(v.x,v.y,v.z),
+  norm:v=>{const l=Math.hypot(v.x,v.y,v.z)||1;return{x:v.x/l,y:v.y/l,z:v.z/l};},
+  cross:(a,b)=>({x:a.y*b.z-a.z*b.y,y:a.z*b.x-a.x*b.z,z:a.x*b.y-a.y*b.x}),
+  dot:(a,b)=>a.x*b.x+a.y*b.y+a.z*b.z
+};
+function quatMul(a,b){
+  return {
+    w:a.w*b.w-a.x*b.x-a.y*b.y-a.z*b.z,
+    x:a.w*b.x+a.x*b.w+a.y*b.z-a.z*b.y,
+    y:a.w*b.y-a.x*b.z+a.y*b.w+a.z*b.x,
+    z:a.w*b.z+a.x*b.y-a.y*b.x+a.z*b.w
+  };
+}
+const quatConj=q=>({w:q.w,x:-q.x,y:-q.y,z:-q.z});
+function rotateVec(q,v){
+  const qv={w:0,x:v.x,y:v.y,z:v.z};
+  const r=quatMul(quatMul(q,qv),quatConj(q));
+  return {x:r.x,y:r.y,z:r.z};
+}
+function quatFromUnitVectors(a,b){
+  const d=V.dot(a,b);
+  if(d<-0.99999){
+    let axis=V.cross({x:1,y:0,z:0},a);
+    if(V.len(axis)<1e-6) axis=V.cross({x:0,y:1,z:0},a);
+    axis=V.norm(axis);
+    return {w:0,x:axis.x,y:axis.y,z:axis.z};
+  }
+  const c=V.cross(a,b);
+  const q={w:1+d,x:c.x,y:c.y,z:c.z};
+  const l=Math.hypot(q.w,q.x,q.y,q.z)||1;
+  return {w:q.w/l,x:q.x/l,y:q.y/l,z:q.z/l};
+}
+function quatFromBasis(x,y,z){
+  const m00=x.x,m01=y.x,m02=z.x, m10=x.y,m11=y.y,m12=z.y, m20=x.z,m21=y.z,m22=z.z;
+  const tr=m00+m11+m22; let q;
+  if(tr>0){const s=Math.sqrt(tr+1)*2;q={w:s/4,x:(m21-m12)/s,y:(m02-m20)/s,z:(m10-m01)/s};}
+  else if(m00>m11&&m00>m22){const s=Math.sqrt(1+m00-m11-m22)*2;q={w:(m21-m12)/s,x:s/4,y:(m01+m10)/s,z:(m02+m20)/s};}
+  else if(m11>m22){const s=Math.sqrt(1+m11-m00-m22)*2;q={w:(m02-m20)/s,x:(m01+m10)/s,y:s/4,z:(m12+m21)/s};}
+  else {const s=Math.sqrt(1+m22-m00-m11)*2;q={w:(m10-m01)/s,x:(m02+m20)/s,y:(m12+m21)/s,z:s/4};}
+  const l=Math.hypot(q.w,q.x,q.y,q.z)||1;
+  return {w:q.w/l,x:q.x/l,y:q.y/l,z:q.z/l};
+}
+function quatToEulerZXY(q){
+  // BVH: CHANNELS ... Zrotation Xrotation Yrotation  →  R = Rz·Rx·Ry
+  const m11=1-2*(q.y*q.y+q.z*q.z), m12=2*(q.x*q.y-q.z*q.w);
+  const m21=2*(q.x*q.y+q.z*q.w),   m22=1-2*(q.x*q.x+q.z*q.z);
+  const m31=2*(q.x*q.z-q.y*q.w),   m32=2*(q.y*q.z+q.x*q.w), m33=1-2*(q.x*q.x+q.y*q.y);
+  const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+  const x=Math.asin(clamp(m32,-1,1));
+  let y,z;
+  if(Math.abs(m32)<0.99999){ y=Math.atan2(-m31,m33); z=Math.atan2(-m12,m22); }
+  else { y=0; z=Math.atan2(m21,m11); }
+  const D=180/Math.PI;
+  return [z*D, x*D, y*D];
+}
+
+function exportBVH() {
+  if(!recordedFrames.length) return;
+  // frames que têm world landmarks da pessoa observada
+  const frames = recordedFrames.filter(f => f.world && f.world.length > 0);
+  if(!frames.length) return;
+  const pIdx = f => Math.min(watchedPerson, f.world.length - 1);
+  // MediaPipe world: x = esquerda da pessoa, y para BAIXO, z para trás.
+  // BVH/Blender: y para CIMA, z para frente → inverte y e z. Escala m→cm.
+  const cv = p => ({ x: p.x*100, y: -p.y*100, z: -p.z*100 });
+  const g  = (lm,i) => cv(lm[i]);
+  const okv = (lm,i) => lm[i] && (lm[i].v ?? 1) > 0.3;
+
+  const first = frames[0].world[pIdx(frames[0])];
+  const L = (a,b) => Math.max(1, V.len(V.sub(g(first,a), g(first,b))));
+  const hipHalf     = L(23,24)/2;
+  const shoulderHalf= L(11,12)/2;
+  const spineLen    = Math.max(1, V.len(V.sub(V.mid(g(first,11),g(first,12)), V.mid(g(first,23),g(first,24)))));
+  const neckLen     = Math.max(1, V.len(V.sub(V.mid(g(first,7),g(first,8)), V.mid(g(first,11),g(first,12)))));
+  const upArmL=L(11,13), foArmL=L(13,15), upArmR=L(12,14), foArmR=L(14,16);
+  const thighL=L(23,25), shinL=L(25,27), footL=L(27,31);
+  const thighR=L(24,26), shinR=L(26,28), footR=L(28,32);
+  const f2=n=>n.toFixed(2);
+
+  const hierarchy =
+`HIERARCHY
+ROOT Hips
+{
+	OFFSET 0.00 0.00 0.00
+	CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation
+	JOINT Spine
+	{
+		OFFSET 0.00 0.00 0.00
+		CHANNELS 3 Zrotation Xrotation Yrotation
+		JOINT Neck
+		{
+			OFFSET 0.00 ${f2(spineLen)} 0.00
+			CHANNELS 3 Zrotation Xrotation Yrotation
+			End Site
+			{
+				OFFSET 0.00 ${f2(neckLen)} 0.00
+			}
+		}
+		JOINT LeftArm
+		{
+			OFFSET ${f2(shoulderHalf)} ${f2(spineLen)} 0.00
+			CHANNELS 3 Zrotation Xrotation Yrotation
+			JOINT LeftForeArm
+			{
+				OFFSET ${f2(upArmL)} 0.00 0.00
+				CHANNELS 3 Zrotation Xrotation Yrotation
+				End Site
+				{
+					OFFSET ${f2(foArmL)} 0.00 0.00
+				}
+			}
+		}
+		JOINT RightArm
+		{
+			OFFSET ${f2(-shoulderHalf)} ${f2(spineLen)} 0.00
+			CHANNELS 3 Zrotation Xrotation Yrotation
+			JOINT RightForeArm
+			{
+				OFFSET ${f2(-upArmR)} 0.00 0.00
+				CHANNELS 3 Zrotation Xrotation Yrotation
+				End Site
+				{
+					OFFSET ${f2(-foArmR)} 0.00 0.00
+				}
+			}
+		}
+	}
+	JOINT LeftUpLeg
+	{
+		OFFSET ${f2(hipHalf)} 0.00 0.00
+		CHANNELS 3 Zrotation Xrotation Yrotation
+		JOINT LeftLeg
+		{
+			OFFSET 0.00 ${f2(-thighL)} 0.00
+			CHANNELS 3 Zrotation Xrotation Yrotation
+			JOINT LeftFoot
+			{
+				OFFSET 0.00 ${f2(-shinL)} 0.00
+				CHANNELS 3 Zrotation Xrotation Yrotation
+				End Site
+				{
+					OFFSET 0.00 0.00 ${f2(footL)}
+				}
+			}
+		}
+	}
+	JOINT RightUpLeg
+	{
+		OFFSET ${f2(-hipHalf)} 0.00 0.00
+		CHANNELS 3 Zrotation Xrotation Yrotation
+		JOINT RightLeg
+		{
+			OFFSET 0.00 ${f2(-thighR)} 0.00
+			CHANNELS 3 Zrotation Xrotation Yrotation
+			JOINT RightFoot
+			{
+				OFFSET 0.00 ${f2(-shinR)} 0.00
+				CHANNELS 3 Zrotation Xrotation Yrotation
+				End Site
+				{
+					OFFSET 0.00 0.00 ${f2(footR)}
+				}
+			}
+		}
+	}
+}
+`;
+
+  /* Ordem dos bones no MOTION (igual à hierarquia):
+     Spine, Neck, LeftArm, LeftForeArm, RightArm, RightForeArm,
+     LeftUpLeg, LeftLeg, LeftFoot, RightUpLeg, RightLeg, RightFoot */
+  const BONES = [
+    { rest:{x:0,y:1,z:0},  parent:-1, dir:lm=>[V.mid(g(lm,23),g(lm,24)), V.mid(g(lm,11),g(lm,12))], need:[11,12,23,24] }, // Spine (pai = Hips)
+    { rest:{x:0,y:1,z:0},  parent:0,  dir:lm=>[V.mid(g(lm,11),g(lm,12)), V.mid(g(lm,7),g(lm,8))],   need:[7,8,11,12] },   // Neck
+    { rest:{x:1,y:0,z:0},  parent:0,  dir:lm=>[g(lm,11), g(lm,13)], need:[11,13] },                                       // LeftArm
+    { rest:{x:1,y:0,z:0},  parent:2,  dir:lm=>[g(lm,13), g(lm,15)], need:[13,15] },                                       // LeftForeArm
+    { rest:{x:-1,y:0,z:0}, parent:0,  dir:lm=>[g(lm,12), g(lm,14)], need:[12,14] },                                       // RightArm
+    { rest:{x:-1,y:0,z:0}, parent:4,  dir:lm=>[g(lm,14), g(lm,16)], need:[14,16] },                                       // RightForeArm
+    { rest:{x:0,y:-1,z:0}, parent:-1, dir:lm=>[g(lm,23), g(lm,25)], need:[23,25] },                                       // LeftUpLeg
+    { rest:{x:0,y:-1,z:0}, parent:6,  dir:lm=>[g(lm,25), g(lm,27)], need:[25,27] },                                       // LeftLeg
+    { rest:{x:0,y:0,z:1},  parent:7,  dir:lm=>[g(lm,27), g(lm,31)], need:[27,31] },                                       // LeftFoot
+    { rest:{x:0,y:-1,z:0}, parent:-1, dir:lm=>[g(lm,24), g(lm,26)], need:[24,26] },                                       // RightUpLeg
+    { rest:{x:0,y:-1,z:0}, parent:9,  dir:lm=>[g(lm,26), g(lm,28)], need:[26,28] },                                       // RightLeg
+    { rest:{x:0,y:0,z:1},  parent:10, dir:lm=>[g(lm,28), g(lm,32)], need:[28,32] }                                        // RightFoot
+  ];
+
+  const prevEuler = BONES.map(()=>[0,0,0]);
+  let prevRootEuler=[0,0,0];
+  const lines = [];
+
+  frames.forEach(f => {
+    const lm = f.world[pIdx(f)];
+    const hipC = V.mid(g(lm,23), g(lm,24));
+    // Orientação da raiz (pelve): base ortonormal a partir da linha
+    // dos quadris (eixo X) e da direção da coluna (eixo Y).
+    let rootQ = {w:1,x:0,y:0,z:0}, rootE = prevRootEuler;
+    if (okv(lm,23)&&okv(lm,24)&&okv(lm,11)&&okv(lm,12)) {
+      const xA = V.norm(V.sub(g(lm,23), g(lm,24)));
+      const yT = V.norm(V.sub(V.mid(g(lm,11),g(lm,12)), hipC));
+      let zA = V.norm(V.cross(xA,yT));
+      const yA = V.norm(V.cross(zA,xA));
+      rootQ = quatFromBasis(xA,yA,zA);
+      rootE = quatToEulerZXY(rootQ);
+      prevRootEuler = rootE;
+    }
+    const worldQ = [];
+    const vals = [f2(hipC.x), f2(hipC.y), f2(hipC.z), f2(rootE[0]), f2(rootE[1]), f2(rootE[2])];
+    BONES.forEach((b,bi)=>{
+      const parentQ = b.parent === -1 ? rootQ : worldQ[b.parent];
+      let localE = prevEuler[bi];
+      let wq = parentQ;
+      if (b.need.every(i=>okv(lm,i))) {
+        const [pA,pB] = b.dir(lm);
+        const d = V.norm(V.sub(pB,pA));
+        const dl = V.norm(rotateVec(quatConj(parentQ), d));
+        const lq = quatFromUnitVectors(b.rest, dl);
+        wq = quatMul(parentQ, lq);
+        localE = quatToEulerZXY(lq);
+        prevEuler[bi] = localE;
+      }
+      worldQ[bi] = wq;
+      vals.push(f2(localE[0]), f2(localE[1]), f2(localE[2]));
+    });
+    lines.push(vals.join(' '));
+  });
+
+  const dur = frames[frames.length-1].t - frames[0].t;
+  const frameTime = frames.length > 1 ? (dur/(frames.length-1))/1000 : 0.033;
+  const bvh = hierarchy +
+`MOTION
+Frames: ${frames.length}
+Frame Time: ${frameTime.toFixed(5)}
+` + lines.join('\n') + '\n';
+
+  download(`mocap_p${watchedPerson+1}.bvh`, bvh, 'application/octet-stream');
 }
 
 function download(name,content,type) {
@@ -1302,8 +2011,17 @@ window.stopRecFromFloat = stopRecFromFloat;
 window.exportMP4 = exportMP4;
 window.exportCSV = exportCSV;
 window.exportJSON = exportJSON;
+window.exportBVH = exportBVH;
 window.skipFaceMesh = skipFaceMesh;
 window.onNumPeopleChange = onNumPeopleChange;
+window.onQualityChange = onQualityChange;
+window.closeRefMode = closeRefMode;
+window.setExercise = setExercise;
+window.resetReps = resetReps;
+window.openPlayback = openPlayback;
+window.closePlayback = closePlayback;
+window.pbTogglePlay = pbTogglePlay;
+window.pbSeek = pbSeek;
 
 refreshPersonSel();
 initModels();
