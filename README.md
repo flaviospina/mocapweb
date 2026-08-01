@@ -12,7 +12,7 @@ Sistema de captura de movimentos corporais e faciais 100% no navegador (webcam �
   - o vídeo é capturado com `captureStream(0)` + `requestFrame()` explícito a cada quadro;
   - uma **janela flutuante sempre visível** (Document Picture-in-Picture, Chrome/Edge 116+) mostra a prévia da câmera, o cronômetro e o botão **⏹ Parar gravação** por cima de qualquer aba (fallback: popup em navegadores sem a API)
 - **Ângulos articulares** em tempo real (joelhos e cotovelos) com gráfico histórico, por pessoa selecionável
-- **Modo espelho (professor/aluno)** — carregue um vídeo de referência (aula, coreografia, exercício), reproduza lado a lado e receba uma **pontuação de semelhança (0–100%)** dos movimentos em tempo real, tolerante a espelhamento esquerda/direita
+- **Modo espelho (professor/aluno)** — use um **arquivo de vídeo** ou uma **aba do YouTube** (captura de aba autorizada pelo usuário via `getDisplayMedia`) como referência lado a lado; o sistema detecta **todas as pessoas do vídeo e da câmera**, confere se as quantidades batem (Vídeo N · Câmera M ✓/✗), pareia as pessoas por posição esquerda→direita e dá uma **pontuação de semelhança (0–100%)** em tempo real — exibida também na janela flutuante durante a gravação, tolerante a espelhamento esquerda/direita
 - **Contador de repetições** — agachamento, polichinelo, flexão de cotovelo e elevação de braços, contados automaticamente pelos ângulos articulares
 - **Reprodução da captura** — reveja o esqueleto gravado quadro a quadro, com play/pause e barra de avanço (scrubbing)
 - **Exportação**: vídeo MP4/WebM (câmera + esqueletos), CSV e JSON com os 33 keypoints por pessoa e por frame, e **BVH** (esqueleto animado importável no Blender: File → Import → Motion Capture .bvh)

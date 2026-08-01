@@ -176,6 +176,7 @@
   .sim-score .val.good { color: var(--accent); }
   .sim-score .val.mid  { color: var(--yellow); }
   .sim-score .val.bad  { color: var(--red); }
+  .sim-score .cnt { font-size: 10px; color: var(--text2); margin-top: 3px; white-space: nowrap; }
   .ref-label {
     position: absolute; bottom: 12px; left: 12px; z-index: 5;
     font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
@@ -469,6 +470,7 @@
       <div class="sim-score" id="simScore" style="display:none;">
         <div class="val" id="simScoreVal">--</div>
         <div class="lbl">Semelhança</div>
+        <div class="cnt" id="simCount"></div>
       </div>
     </div>
 
@@ -558,9 +560,10 @@
       <div class="panel-title">Modo espelho — vídeo referência</div>
       <input type="file" id="refFile" accept="video/*" style="display:none;">
       <button class="btn btn-secondary" onclick="document.getElementById('refFile').click()">📂 Carregar vídeo referência</button>
+      <button class="btn btn-secondary" onclick="startRefTabCapture()">🖥 Usar aba do YouTube</button>
       <button class="btn btn-secondary" id="btnRefClose" style="display:none;" onclick="closeRefMode()">✕ Fechar referência</button>
       <div style="font-size:10px;color:var(--text2);margin-top:8px;line-height:1.5;">
-        Reproduza um vídeo (aula, coreografia, exercício) lado a lado e receba a <b>pontuação de semelhança</b> dos seus movimentos em tempo real.
+        Compare os movimentos com um <b>arquivo de vídeo</b> ou com uma <b>aba do YouTube</b> (escolha a aba na janela do navegador). O sistema conta as pessoas no vídeo e na câmera, confere se as quantidades batem e dá a <b>pontuação de semelhança</b> em tempo real — visível também na janela flutuante durante a gravação.
       </div>
     </div>
 
@@ -986,11 +989,11 @@ function processFrame() {
       }
       renderResults(poseResult.landmarks || [], poseResult.worldLandmarks || []);
     }
-    // Vídeo de referência (modo espelho)
+    // Vídeo de referência (modo espelho: arquivo ou aba do YouTube)
     if (refActive && refLandmarker && refVideo.readyState >= 2 && !refVideo.paused && refVideo.currentTime !== lastRefTime) {
       lastRefTime = refVideo.currentTime;
       const r = refLandmarker.detectForVideo(refVideo, ts + 0.001);
-      refLandmarks = (r.landmarks && r.landmarks[0]) || null;
+      refPersons = r.landmarks || [];
       drawRefOverlay();
     }
   } catch(e) {
@@ -1093,7 +1096,7 @@ function renderResults(persons, worldPersons) {
       document.getElementById('kpCount').textContent = `${activeKp} keypoints detectados`;
       updateKPGrid(watched);
       updateAngles(watched);
-      updateSimScore(watched);
+      updateSimScore(persons);
     }
 
     if (isRecording) {
@@ -1110,7 +1113,7 @@ function renderResults(persons, worldPersons) {
     document.getElementById('personCount').textContent = '0 pessoa(s) detectada(s)';
     document.getElementById('kpCount').textContent = '0 keypoints detectados';
     updateKPGrid([]);
-    updateSimScore(null);
+    updateSimScore([]);
   }
 
   frameCount++;
@@ -1136,6 +1139,7 @@ async function onNumPeopleChange(n) {
   try {
     if (poseLandmarker) await poseLandmarker.setOptions({ numPoses: n });
     if (faceLandmarker) await faceLandmarker.setOptions({ numFaces: n });
+    if (refLandmarker)  await refLandmarker.setOptions({ numPoses: n });
   } catch(e) { console.error('Erro ao ajustar nº de pessoas:', e); }
 }
 
@@ -1350,21 +1354,42 @@ const refVideo = document.getElementById('refVideo');
 const refCanvas = document.getElementById('refCanvas');
 const refCtx = refCanvas.getContext('2d');
 let refLandmarker = null;
-let refLandmarks = null;
+let refPersons = [];         // TODAS as pessoas detectadas na referência
 let refActive = false;
+let refIsTab = false;        // referência vinda de captura de aba (ex.: YouTube)
+let refTabStream = null;
 let lastRefTime = -1;
 let refUrl = null;
+let simSummary = null;       // resumo p/ janela flutuante {score,nRef,nCam,match}
 
 async function ensureRefLandmarker() {
   if (refLandmarker || !fileset) return;
   refLandmarker = await createLandmarker(PoseLandmarker, fileset, {
     baseOptions: { modelAssetPath: POSE_MODELS.lite },
     runningMode: 'VIDEO',
-    numPoses: 1,
+    numPoses: numPeople,
     minPoseDetectionConfidence: 0.5,
     minPosePresenceConfidence: 0.5,
     minTrackingConfidence: 0.5
   });
+}
+
+function activateRefUI() {
+  refActive = true;
+  lastRefTime = -1;
+  refPersons = [];
+  simSummary = null;
+  viewport.classList.add('ref-on');
+  document.getElementById('btnRefClose').style.display='flex';
+  document.getElementById('simScore').style.display='block';
+  document.getElementById('simCount').textContent='';
+  refVideo.play().catch(()=>{});
+  ensureLoops();
+}
+
+function stopRefTab() {
+  if (refTabStream) { refTabStream.getTracks().forEach(t=>t.stop()); refTabStream = null; }
+  refIsTab = false;
 }
 
 document.getElementById('refFile').addEventListener('change', async e=>{
@@ -1372,22 +1397,55 @@ document.getElementById('refFile').addEventListener('change', async e=>{
   if (!file) return;
   try { await ensureRefLandmarker(); }
   catch(err) { console.error('Falha ao criar detector de referência:', err); return; }
+  stopRefTab();
   if (refUrl) URL.revokeObjectURL(refUrl);
+  refVideo.srcObject = null;
   refUrl = URL.createObjectURL(file);
   refVideo.src = refUrl;
-  refActive = true;
-  lastRefTime = -1;
-  viewport.classList.add('ref-on');
-  document.getElementById('btnRefClose').style.display='flex';
-  document.getElementById('simScore').style.display='block';
-  refVideo.play().catch(()=>{});
-  ensureLoops();
+  refVideo.controls = true;
+  refVideo.loop = true;
+  activateRefUI();
 });
+
+/* Captura de aba do navegador (ex.: YouTube): o usuário escolhe a aba
+   no seletor nativo do navegador e o vídeo dela vira a referência,
+   analisado em tempo real enquanto ele assiste/dança na própria aba.
+   (Uma página não pode ler outra aba sozinha — o compartilhamento
+   autorizado pelo usuário via getDisplayMedia é o caminho seguro.) */
+async function startRefTabCapture() {
+  try { await ensureRefLandmarker(); }
+  catch(err) { console.error('Falha ao criar detector de referência:', err); return; }
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getDisplayMedia({
+      video: { frameRate: { ideal: 30 } },
+      audio: false,
+      selfBrowserSurface: 'exclude',   // esconde a própria aba do seletor
+      surfaceSwitching: 'include',     // permite trocar de aba depois
+      systemAudio: 'exclude'
+    });
+  } catch(e) { console.warn('Captura de aba cancelada:', e); return; }
+  stopRefTab();
+  if (refUrl) { URL.revokeObjectURL(refUrl); refUrl = null; }
+  refVideo.removeAttribute('src');
+  refTabStream = stream;
+  refIsTab = true;
+  refVideo.srcObject = stream;
+  refVideo.controls = false;
+  refVideo.loop = false;
+  const track = stream.getVideoTracks()[0];
+  if (track) track.addEventListener('ended', ()=>{ if (refIsTab) closeRefMode(); });
+  activateRefUI();
+}
 
 function closeRefMode() {
   refActive = false;
   refVideo.pause();
-  refLandmarks = null;
+  stopRefTab();
+  refVideo.srcObject = null;
+  refVideo.controls = true;
+  refPersons = [];
+  simSummary = null;
   viewport.classList.remove('ref-on');
   document.getElementById('btnRefClose').style.display='none';
   document.getElementById('simScore').style.display='none';
@@ -1401,21 +1459,28 @@ function drawRefOverlay() {
     refCanvas.width = rect.dispW; refCanvas.height = rect.dispH;
   }
   refCtx.clearRect(0,0,rect.dispW,rect.dispH);
-  if (!refLandmarks) return;
+  if (!refPersons.length) return;
   const toX = nx => rect.ox + nx * rect.w;   // referência não é espelhada
   const toY = ny => rect.oy + ny * rect.h;
   refCtx.save();
   refCtx.globalAlpha = 0.85;
-  POSE_CONNECTIONS.forEach(([a,b])=>{
-    const pa=refLandmarks[a],pb=refLandmarks[b]; if(!pa||!pb) return;
-    if((pa.visibility??1)<0.3||(pb.visibility??1)<0.3) return;
-    refCtx.beginPath(); refCtx.strokeStyle='rgba(255,201,71,0.9)'; refCtx.lineWidth=2; refCtx.lineCap='round';
-    refCtx.moveTo(toX(pa.x),toY(pa.y)); refCtx.lineTo(toX(pb.x),toY(pb.y)); refCtx.stroke();
-  });
-  refLandmarks.forEach(p=>{
-    if((p.visibility??1)<0.3) return;
-    refCtx.beginPath(); refCtx.fillStyle='#ffc947';
-    refCtx.arc(toX(p.x),toY(p.y),3.5,0,Math.PI*2); refCtx.fill();
+  refPersons.forEach((lm, pi)=>{
+    POSE_CONNECTIONS.forEach(([a,b])=>{
+      const pa=lm[a],pb=lm[b]; if(!pa||!pb) return;
+      if((pa.visibility??1)<0.3||(pb.visibility??1)<0.3) return;
+      refCtx.beginPath(); refCtx.strokeStyle='rgba(255,201,71,0.9)'; refCtx.lineWidth=2; refCtx.lineCap='round';
+      refCtx.moveTo(toX(pa.x),toY(pa.y)); refCtx.lineTo(toX(pb.x),toY(pb.y)); refCtx.stroke();
+    });
+    lm.forEach(p=>{
+      if((p.visibility??1)<0.3) return;
+      refCtx.beginPath(); refCtx.fillStyle='#ffc947';
+      refCtx.arc(toX(p.x),toY(p.y),3.5,0,Math.PI*2); refCtx.fill();
+    });
+    const nose = lm[0];
+    if (nose && (nose.visibility??1) > 0.3) {
+      refCtx.font='700 11px monospace'; refCtx.fillStyle='#ffc947';
+      refCtx.fillText('R'+(pi+1), toX(nose.x)-8, toY(nose.y)-16);
+    }
   });
   refCtx.restore();
 }
@@ -1441,20 +1506,45 @@ function cmpAngles(a,b) {
   a.forEach((v,i)=>{ if(v==null||b[i]==null) return; s+=Math.max(0,1-Math.abs(v-b[i])/90); n++; });
   return n ? Math.round(s/n*100) : null;
 }
-function updateSimScore(liveLm) {
+function pairScore(liveLm, refLm) {
+  const live = anglesOf(liveLm, SIM_DEFS);
+  const s1 = cmpAngles(live, anglesOf(refLm, SIM_DEFS));
+  const s2 = cmpAngles(live, anglesOf(refLm, SIM_SWAP));
+  const s = Math.max(s1 ?? -1, s2 ?? -1);
+  return s < 0 ? null : s;
+}
+/* Pareamento por posição visual esquerda→direita: a câmera é exibida
+   espelhada, então a posição visual é (1 - x); a referência não. */
+function visualXLive(lm){ const a=lm[23],b=lm[24]; const x=(a&&b)?(a.x+b.x)/2:(lm[0]?lm[0].x:0.5); return 1-x; }
+function visualXRef(lm){ const a=lm[23],b=lm[24]; return (a&&b)?(a.x+b.x)/2:(lm[0]?lm[0].x:0.5); }
+
+function updateSimScore(livePersons) {
   if (!refActive) return;
   const el = document.getElementById('simScoreVal');
+  const cnt = document.getElementById('simCount');
+  const nRef = refPersons.length, nCam = (livePersons||[]).length;
   let score = null;
-  if (liveLm && liveLm.length && refLandmarks) {
-    const live = anglesOf(liveLm, SIM_DEFS);
-    const s1 = cmpAngles(live, anglesOf(refLandmarks, SIM_DEFS));
-    const s2 = cmpAngles(live, anglesOf(refLandmarks, SIM_SWAP));
-    score = Math.max(s1 ?? -1, s2 ?? -1);
-    if (score < 0) score = null;
+  if (nRef && nCam) {
+    const ls = [...livePersons].sort((a,b)=>visualXLive(a)-visualXLive(b));
+    const rs = [...refPersons].sort((a,b)=>visualXRef(a)-visualXRef(b));
+    const n = Math.min(ls.length, rs.length);
+    let s=0, k=0;
+    for (let i=0; i<n; i++) { const p = pairScore(ls[i], rs[i]); if (p!=null) { s+=p; k++; } }
+    if (k) score = Math.round(s/k);
   }
+  const match = nRef > 0 && nRef === nCam;
+  cnt.textContent = `Vídeo: ${nRef} · Câmera: ${nCam} ${(nRef&&nCam)?(match?'✓':'✗'):''}`;
+  cnt.style.color = match ? 'var(--accent)' : 'var(--text2)';
+  simSummary = { score, nRef, nCam, match };
   if (score == null) { el.textContent='--'; el.className='val'; return; }
   el.textContent = score + '%';
   el.className = 'val ' + (score >= 80 ? 'good' : score >= 55 ? 'mid' : 'bad');
+}
+
+function simText() {
+  if (!refActive || !simSummary) return '';
+  const { score, nRef, nCam, match } = simSummary;
+  return `Semelhança: ${score==null?'--':score+'%'} · Vídeo ${nRef} · Câmera ${nCam} ${(nRef&&nCam)?(match?'✓':'✗'):''}`;
 }
 
 /* ── Contador de repetições ────────────────────────── */
@@ -1561,10 +1651,21 @@ function toggleRec() {
     composeRecordFrame();
     recTimerInterval=setInterval(()=>{
       const t=fmtTimer(Date.now()-recStartTime);
+      const st=simText();
       document.getElementById('recTimer').textContent=t;
       document.getElementById('recFloatTimer').textContent=t;
-      try{ const el=pipWindow&&pipWindow.document.getElementById('pipTimer'); if(el) el.textContent=t; }catch(_){}
-      try{ const el=popupWindow&&!popupWindow.closed&&popupWindow.document.getElementById('pipTimer'); if(el) el.textContent=t; }catch(_){}
+      try{
+        if(pipWindow){
+          const el=pipWindow.document.getElementById('pipTimer'); if(el) el.textContent=t;
+          const sc=pipWindow.document.getElementById('pipScore'); if(sc){ sc.textContent=st; sc.style.display=st?'block':'none'; }
+        }
+      }catch(_){}
+      try{
+        if(popupWindow&&!popupWindow.closed){
+          const el=popupWindow.document.getElementById('pipTimer'); if(el) el.textContent=t;
+          const sc=popupWindow.document.getElementById('pipScore'); if(sc){ sc.textContent=st; sc.style.display=st?'block':'none'; }
+        }
+      }catch(_){}
     },500);
     openRecFloatWindow();
   } else {
@@ -1605,6 +1706,7 @@ async function openRecFloatWindow() {
       .t{font-family:monospace;font-size:30px;font-weight:700;color:#e8eaf0;}
       button{background:#ff4a6e;color:#fff;border:none;border-radius:8px;padding:12px 22px;font-size:14px;font-weight:700;cursor:pointer;}
       button:hover{filter:brightness(1.1);}
+      .score{font-size:12px;font-weight:700;color:#00e5a0;text-align:center;padding:0 10px;}
       .hint{font-size:10px;color:#8890a4;text-align:center;padding:0 14px;line-height:1.5;}`;
     d.head ? d.head.appendChild(style) : d.body.appendChild(style);
     const bar = d.createElement('div'); bar.className='bar';
@@ -1614,6 +1716,10 @@ async function openRecFloatWindow() {
     d.body.appendChild(bar);
     const t = d.createElement('div'); t.className='t'; t.id='pipTimer'; t.textContent='00:00';
     d.body.appendChild(t);
+    // Pontuação de semelhança do modo espelho (só aparece quando ativo)
+    const sc = d.createElement('div'); sc.className='score'; sc.id='pipScore';
+    const st0 = simText(); sc.textContent = st0; sc.style.display = st0 ? 'block' : 'none';
+    d.body.appendChild(sc);
     const btn = d.createElement('button'); btn.textContent='⏹ Parar gravação';
     btn.addEventListener('click', stopRecFromFloat);
     d.body.appendChild(btn);
@@ -1624,7 +1730,7 @@ async function openRecFloatWindow() {
 
   if ('documentPictureInPicture' in window) {
     try {
-      pipWindow = await window.documentPictureInPicture.requestWindow({ width: 260, height: 200 });
+      pipWindow = await window.documentPictureInPicture.requestWindow({ width: 280, height: 235 });
       buildContent(pipWindow);
       pipWindow.addEventListener('pagehide', () => { pipWindow = null; });
       return;
@@ -1633,7 +1739,7 @@ async function openRecFloatWindow() {
   // Fallback: popup comum (não fica "sempre no topo", mas permanece
   // visível como janela separada enquanto o usuário navega).
   try {
-    popupWindow = window.open('', 'mocapRecFloat', 'width=260,height=200,popup=yes');
+    popupWindow = window.open('', 'mocapRecFloat', 'width=280,height=235,popup=yes');
     if (popupWindow) buildContent(popupWindow);
   } catch(e) { console.warn('Popup bloqueado:', e); popupWindow = null; }
 }
@@ -2022,6 +2128,7 @@ window.skipFaceMesh = skipFaceMesh;
 window.onNumPeopleChange = onNumPeopleChange;
 window.onQualityChange = onQualityChange;
 window.closeRefMode = closeRefMode;
+window.startRefTabCapture = startRefTabCapture;
 window.setExercise = setExercise;
 window.resetReps = resetReps;
 window.openPlayback = openPlayback;
