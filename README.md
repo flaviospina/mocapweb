@@ -26,6 +26,37 @@ Sistema de captura de movimentos corporais e faciais 100% no navegador (webcam �
 - Malha facial processada a cada 2 quadros
 - Se ainda estiver lento: reduza o **máx. de pessoas**, desligue **Rosto**, ou use um navegador com aceleração de GPU ativada
 
+## Login, banco de dados e página administrativa (opcional)
+
+O sistema funciona de dois modos:
+
+- **Autônomo** — só o `index.html`, sem servidor: tudo roda local, sem login (os endpoints `api/` simplesmente não existem).
+- **Com servidor (PHP 8 + MySQL)** — adiciona tela de login, salvamento das capturas por evento e página administrativa com tabela dinâmica.
+
+### Instalação do servidor (hospedagem comum, ex.: cPanel)
+
+1. Envie todos os arquivos para a pasta do site (ex.: `public_html/mocapweb/`).
+2. Crie um banco MySQL no painel da hospedagem e importe **`db/schema.sql`** (phpMyAdmin → Importar).
+3. Copie `api/config.example.php` para **`api/config.php`** e preencha host, banco, usuário e senha.
+4. Abra **`api/criar_admin.php`** no navegador e crie o primeiro administrador (só funciona com a tabela de usuários vazia). **Depois apague esse arquivo do servidor.**
+5. Acesse `login.php`, entre, e pronto: o `index.html` passa a exigir login e mostra o botão **☁ Salvar no servidor** após cada gravação.
+6. Na página **`admin.php`**: crie eventos (dia e horário), filtre as capturas por evento/data/busca, ordene qualquer coluna clicando no cabeçalho, veja o resumo (nº de capturas, participantes, tempo total, semelhança média), baixe o JSON de cada captura ou exporte a tabela em CSV.
+
+### Segurança implementada
+
+- Senhas com **bcrypt** (`password_hash`), nunca em texto puro
+- **Consultas preparadas (PDO)** em todas as queries — proteção contra SQL injection
+- Sessão com cookie **HttpOnly + SameSite=Lax** (+ Secure sob HTTPS) e `session_regenerate_id` no login
+- **Proteção CSRF** (token por sessão exigido em todas as escritas)
+- **Bloqueio de conta por 15 min após 5 tentativas** de login erradas + registro de acessos (`logs_acesso`)
+- Escapamento de HTML nas páginas e cabeçalhos `X-Frame-Options`/`nosniff`
+
+### LGPD (dados de crianças)
+
+- Grave o participante apenas com **nome de exibição ou código** (ex.: "Aluno 07") — o campo orienta isso.
+- **Nenhum vídeo é enviado ao servidor** — somente os pontos numéricos do esqueleto (33 keypoints), que não identificam a criança.
+- Colete o consentimento dos responsáveis pela escola antes dos eventos e use **HTTPS** na hospedagem.
+
 ## Como usar
 
 1. Abra o `index.html` em um servidor HTTPS (ou `localhost`) — a câmera exige contexto seguro.

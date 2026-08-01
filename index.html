@@ -455,6 +455,7 @@
     <span class="badge">Multi-Pessoa</span>
   </div>
 
+  <span id="userBadge" style="display:none; align-items:center; gap:6px; font-size:11px; color:var(--text2); white-space:nowrap;"></span>
   <span class="status-dot" id="statusDot"></span>
   <span class="status-label" id="statusLabel">Aguardando câmera</span>
 </header>
@@ -653,6 +654,9 @@
           <button class="btn btn-secondary" id="btnExportJSON" onclick="exportJSON()" style="font-size:11px;">JSON</button>
           <button class="btn btn-secondary" id="btnExportBVH" onclick="exportBVH()" style="font-size:11px;" title="Esqueleto animado para Blender/3D">BVH</button>
         </div>
+        <button class="btn btn-secondary" id="btnSaveServer" onclick="openSaveModal()" style="font-size:12px; display:none;">
+          ☁ Salvar no servidor (evento)
+        </button>
         <div id="mp4Status" style="display:none; margin-top:8px; padding:7px 10px; background:rgba(0,229,160,0.08); border:1px solid rgba(0,229,160,0.2); border-radius:6px; font-size:11px; color:var(--accent); line-height:1.5;"></div>
       </div>
     </div>
@@ -664,6 +668,26 @@
   <span><div class="dot ok" id="modelDot"></div> <span id="modelStatus">Carregando...</span></span>
   <span style="margin-left:auto;" id="kpCount">0 keypoints detectados</span>
 </footer>
+
+<!-- Modal para salvar a captura no servidor -->
+<div id="svModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:600; align-items:center; justify-content:center;">
+  <div style="background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:22px; width:min(92vw,400px); display:flex; flex-direction:column; gap:12px;">
+    <div class="panel-title" style="margin:0;">☁ Salvar captura no servidor</div>
+    <div>
+      <label style="font-size:11px;color:var(--text2);font-weight:600;">Evento (dia · horário)</label>
+      <select id="svEvento" class="sel" style="margin-top:4px;"></select>
+    </div>
+    <div>
+      <label style="font-size:11px;color:var(--text2);font-weight:600;">Participante — use nome de exibição ou código (LGPD: evite dados pessoais)</label>
+      <input id="svParticipante" class="sel" style="margin-top:4px;" maxlength="120" placeholder="Ex.: Aluno 07 · Turma A">
+    </div>
+    <div id="svStatus" style="display:none; font-size:12px; padding:8px 10px; border-radius:6px; line-height:1.5;"></div>
+    <div style="display:flex; gap:8px;">
+      <button class="btn btn-secondary" onclick="closeSaveModal()" style="flex:1;">Cancelar</button>
+      <button class="btn btn-primary" id="svBtn" onclick="saveToServer()" style="flex:1;">Salvar</button>
+    </div>
+  </div>
+</div>
 
 <!-- Modal de reprodução da captura (esqueleto quadro a quadro) -->
 <div id="pbModal">
@@ -733,6 +757,11 @@ window.overlayAlpha = 0.8;
 let isRecording = false;
 let recordedFrames = [];
 let recStartTime = 0;
+let simAccum = { s: 0, n: 0 };   // média de semelhança durante a gravação
+let maxPersonsSeen = 0;          // máx. de pessoas vistas durante a gravação
+let repAtRecStart = 0;           // repetições no início da gravação
+let serverUser = null;           // usuário logado (null = modo autônomo sem servidor)
+let serverCsrf = null;
 let recTimerInterval = null;
 let mediaRecorder = null;
 let recordedChunks = [];
@@ -1100,6 +1129,7 @@ function renderResults(persons, worldPersons) {
     }
 
     if (isRecording) {
+      maxPersonsSeen = Math.max(maxPersonsSeen, persons.length);
       recordedFrames.push({
         t: Date.now()-recStartTime,
         persons: persons.map(lm => lm.map(p=>({x:+p.x.toFixed(4),y:+p.y.toFixed(4),z:+p.z.toFixed(4),v:+((p.visibility??0)).toFixed(3)}))),
@@ -1536,6 +1566,7 @@ function updateSimScore(livePersons) {
   cnt.textContent = `Vídeo: ${nRef} · Câmera: ${nCam} ${(nRef&&nCam)?(match?'✓':'✗'):''}`;
   cnt.style.color = match ? 'var(--accent)' : 'var(--text2)';
   simSummary = { score, nRef, nCam, match };
+  if (isRecording && score != null) { simAccum.s += score; simAccum.n++; }
   if (score == null) { el.textContent='--'; el.className='val'; return; }
   el.textContent = score + '%';
   el.className = 'val ' + (score >= 80 ? 'good' : score >= 55 ? 'mid' : 'bad');
@@ -1637,6 +1668,7 @@ function toggleRec() {
   const ind=document.getElementById('recIndicator');
   if(isRecording){
     recordedFrames=[]; recordedChunks=[]; recStartTime=Date.now(); lastCompose=0;
+    simAccum={s:0,n:0}; maxPersonsSeen=0; repAtRecStart=repCount;
     ind.classList.remove('hidden');
     document.getElementById('recFloat').classList.add('on');
     document.getElementById('exportSection').style.display='none';
@@ -1677,6 +1709,7 @@ function toggleRec() {
     recStream=null; recVideoTrack=null;
     closeRecFloatWindow();
     if(recordedFrames.length>0||recordedChunks.length>0) document.getElementById('exportSection').style.display='block';
+    document.getElementById('btnSaveServer').style.display = (serverUser && recordedFrames.length>0) ? 'flex' : 'none';
   }
 }
 
@@ -2113,6 +2146,106 @@ function download(name,content,type) {
   a.download=name; a.click();
 }
 
+/* ── Integração com o servidor (login + salvar capturas) ──
+   Se a pasta api/ existir no servidor, o acesso exige login
+   (redireciona para login.php). Sem servidor (uso local),
+   o sistema continua funcionando em modo autônomo, apenas
+   sem o botão de salvar no servidor. */
+async function initServerSession() {
+  try {
+    const r = await fetch('api/me.php', { cache: 'no-store' });
+    if (r.status === 401) { location.href = 'login.php?r=index.html'; return; }
+    if (r.ok) {
+      const j = await r.json();
+      serverUser = j.usuario; serverCsrf = j.csrf;
+      const b = document.getElementById('userBadge');
+      b.textContent = '👤 ' + serverUser.nome + ' · ';
+      const a = document.createElement('a');
+      a.href = 'admin.php'; a.textContent = 'Admin';
+      a.style.color = 'var(--accent)';
+      b.appendChild(a);
+      b.style.display = 'inline-flex';
+    }
+  } catch(_) { /* sem servidor: modo autônomo */ }
+}
+
+function svMsg(texto, ok) {
+  const el = document.getElementById('svStatus');
+  el.textContent = texto;
+  el.style.display = 'block';
+  el.style.background = ok ? 'rgba(0,229,160,0.1)' : 'rgba(255,74,110,0.1)';
+  el.style.border = '1px solid ' + (ok ? 'rgba(0,229,160,0.3)' : 'rgba(255,74,110,0.3)');
+  el.style.color = ok ? 'var(--accent)' : 'var(--red)';
+}
+
+async function openSaveModal() {
+  if (!serverUser || !recordedFrames.length) return;
+  document.getElementById('svStatus').style.display = 'none';
+  document.getElementById('svBtn').disabled = false;
+  const sel = document.getElementById('svEvento');
+  sel.innerHTML = '<option value="">Carregando eventos...</option>';
+  document.getElementById('svModal').style.display = 'flex';
+  try {
+    const r = await fetch('api/eventos.php', { headers: { 'X-CSRF-Token': serverCsrf } });
+    const j = await r.json();
+    const evs = j.eventos || [];
+    if (!evs.length) {
+      sel.innerHTML = '<option value="">Nenhum evento — crie um na página Admin</option>';
+      return;
+    }
+    sel.innerHTML = evs.map(e => {
+      const d = new Date(e.data_evento + 'T00:00').toLocaleDateString('pt-BR');
+      return `<option value="${e.id}">${e.titulo.replace(/</g,'&lt;')} · ${d} ${e.hora_inicio.slice(0,5)}</option>`;
+    }).join('');
+  } catch(_) { sel.innerHTML = '<option value="">Erro ao carregar eventos</option>'; }
+}
+
+function closeSaveModal() { document.getElementById('svModal').style.display = 'none'; }
+
+async function saveToServer() {
+  const eventoId = +document.getElementById('svEvento').value || 0;
+  const participante = document.getElementById('svParticipante').value.trim();
+  if (!eventoId) { svMsg('Selecione um evento (crie um na página Admin, se necessário).', false); return; }
+  if (!participante) { svMsg('Informe o participante (ex.: "Aluno 07").', false); return; }
+  const btn = document.getElementById('svBtn');
+  btn.disabled = true;
+  svMsg('Enviando captura...', true);
+  const dados = {
+    metadata: { source:'MoCapWeb CECAPE', model:'MediaPipe Pose Landmarker (multi-pessoa)', quality:modelQuality, maxPeople:numPeople, keypoints:KP_NAMES, frames:recordedFrames.length },
+    frames: recordedFrames
+  };
+  const payload = {
+    evento_id: eventoId,
+    participante,
+    duracao_ms: recordedFrames.length ? recordedFrames[recordedFrames.length-1].t : 0,
+    quadros: recordedFrames.length,
+    num_pessoas: Math.max(1, maxPersonsSeen),
+    modelo: modelQuality,
+    similaridade_media: simAccum.n ? Math.round(simAccum.s / simAccum.n) : null,
+    exercicio: exercise === 'none' ? null : exercise,
+    repeticoes: exercise === 'none' ? null : Math.max(0, repCount - repAtRecStart),
+    dados
+  };
+  try {
+    const r = await fetch('api/capturas.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': serverCsrf },
+      body: JSON.stringify(payload)
+    });
+    const j = await r.json();
+    if (r.ok && j.ok) {
+      svMsg('✅ Captura #' + j.id + ' salva no servidor!', true);
+      setTimeout(closeSaveModal, 1600);
+    } else {
+      svMsg(j.erro || 'Falha ao salvar no servidor.', false);
+      btn.disabled = false;
+    }
+  } catch(_) {
+    svMsg('Erro de conexão com o servidor. Tente novamente.', false);
+    btn.disabled = false;
+  }
+}
+
 /* Handlers usados nos atributos onclick do HTML (escopo de módulo) */
 window.toggleVis = toggleVis;
 window.toggleVideoVisibility = toggleVideoVisibility;
@@ -2135,7 +2268,11 @@ window.openPlayback = openPlayback;
 window.closePlayback = closePlayback;
 window.pbTogglePlay = pbTogglePlay;
 window.pbSeek = pbSeek;
+window.openSaveModal = openSaveModal;
+window.closeSaveModal = closeSaveModal;
+window.saveToServer = saveToServer;
 
+initServerSession();
 refreshPersonSel();
 updateKPGrid([]);   // grade já nasce com a altura definitiva (13 pontos)
 initModels();
