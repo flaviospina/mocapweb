@@ -902,13 +902,17 @@ function rgba(hex, a) {
 
 let POSE_CONNECTIONS = [];
 
+/* A grade SEMPRE mostra os 13 pontos principais (os não detectados
+   ficam esmaecidos). Assim a altura do painel nunca muda e os botões
+   abaixo — como o "Iniciar gravação" — não ficam pulando de posição. */
 function updateKPGrid(lm) {
   const grid = document.getElementById('kpGrid');
-  const active = KEY_JOINTS.filter(i => lm[i] && (lm[i].visibility ?? 1) > 0.5);
-  grid.innerHTML = active.map(i => {
-    const p = lm[i], conf = Math.round((p.visibility ?? 0)*100);
-    return `<div class="kp-item"><div class="kp-dot" style="background:${JOINT_COLORS[i]||'#888'}"></div><div class="kp-label">${KP_NAMES[i]||'kp'+i}</div><div class="kp-val">${conf}%</div></div>`;
-  }).join('') || '<div class="kp-item" style="grid-column:1/-1"><div class="kp-label" style="color:var(--text2)">Nenhuma pose detectada</div></div>';
+  grid.innerHTML = KEY_JOINTS.map(i => {
+    const p = lm[i];
+    const on = p && (p.visibility ?? 1) > 0.5;
+    const conf = on ? Math.round((p.visibility ?? 0)*100)+'%' : '--';
+    return `<div class="kp-item"${on?'':' style="opacity:0.35;"'}><div class="kp-dot" style="background:${on?(JOINT_COLORS[i]||'#888'):'#555'}"></div><div class="kp-label">${KP_NAMES[i]||'kp'+i}</div><div class="kp-val">${conf}</div></div>`;
+  }).join('');
 }
 
 function updateAngles(lm) {
@@ -2026,6 +2030,7 @@ window.pbTogglePlay = pbTogglePlay;
 window.pbSeek = pbSeek;
 
 refreshPersonSel();
+updateKPGrid([]);   // grade já nasce com a altura definitiva (13 pontos)
 initModels();
 </script>
 </body>
