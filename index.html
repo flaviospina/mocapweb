@@ -1580,8 +1580,11 @@ function stopRecFromFloat(){ if(isRecording) toggleRec(); }
 /* ── Janela flutuante de gravação ──────────────────────
    Usa a Document Picture-in-Picture API (Chrome/Edge 116+):
    uma mini-janela SEMPRE VISÍVEL, por cima de qualquer aba
-   (ex.: YouTube), com prévia da câmera, cronômetro e botão
-   de parar. Fallback: popup comum em navegadores sem a API. */
+   (ex.: YouTube), com cronômetro e botão de parar.
+   ATENÇÃO: sem prévia da câmera de propósito — algumas
+   pessoas têm vergonha de se ver na tela; a gravação em si
+   continua normal, só a imagem não é exibida AQUI.
+   Fallback: popup comum em navegadores sem a API. */
 async function openRecFloatWindow() {
   closeRecFloatWindow();
   const buildContent = (win) => {
@@ -1590,27 +1593,26 @@ async function openRecFloatWindow() {
     d.body.innerHTML = '';
     const style = d.createElement('style');
     style.textContent = `
-      body{margin:0;background:#0a0c10;color:#e8eaf0;font-family:system-ui,sans-serif;display:flex;flex-direction:column;height:100vh;overflow:hidden;}
-      video{flex:1;min-height:0;width:100%;object-fit:cover;transform:scaleX(-1);background:#000;}
-      .bar{display:flex;align-items:center;gap:10px;padding:10px 12px;flex-shrink:0;}
-      .dot{width:10px;height:10px;border-radius:50%;background:#ff4a6e;animation:p 1s infinite;}
+      body{margin:0;background:#0a0c10;color:#e8eaf0;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;height:100vh;overflow:hidden;}
+      .bar{display:flex;align-items:center;gap:10px;}
+      .dot{width:14px;height:14px;border-radius:50%;background:#ff4a6e;animation:p 1s infinite;}
       @keyframes p{0%,100%{opacity:1}50%{opacity:.35}}
-      .t{font-family:monospace;font-size:13px;font-weight:700;color:#ff4a6e;}
-      button{margin-left:auto;background:#ff4a6e;color:#fff;border:none;border-radius:7px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;}
+      .rec{font-size:13px;font-weight:800;letter-spacing:2px;color:#ff4a6e;}
+      .t{font-family:monospace;font-size:30px;font-weight:700;color:#e8eaf0;}
+      button{background:#ff4a6e;color:#fff;border:none;border-radius:8px;padding:12px 22px;font-size:14px;font-weight:700;cursor:pointer;}
       button:hover{filter:brightness(1.1);}
-      .hint{padding:0 12px 8px;font-size:10px;color:#8890a4;}`;
+      .hint{font-size:10px;color:#8890a4;text-align:center;padding:0 14px;line-height:1.5;}`;
     d.head ? d.head.appendChild(style) : d.body.appendChild(style);
-    const vid = d.createElement('video');
-    vid.muted = true; vid.autoplay = true; vid.setAttribute('playsinline','');
-    if (videoEl.srcObject) vid.srcObject = videoEl.srcObject;
-    d.body.appendChild(vid);
     const bar = d.createElement('div'); bar.className='bar';
     const dot = d.createElement('div'); dot.className='dot';
-    const t = d.createElement('span'); t.className='t'; t.id='pipTimer'; t.textContent='00:00';
+    const rec = d.createElement('span'); rec.className='rec'; rec.textContent='REC';
+    bar.appendChild(dot); bar.appendChild(rec);
+    d.body.appendChild(bar);
+    const t = d.createElement('div'); t.className='t'; t.id='pipTimer'; t.textContent='00:00';
+    d.body.appendChild(t);
     const btn = d.createElement('button'); btn.textContent='⏹ Parar gravação';
     btn.addEventListener('click', stopRecFromFloat);
-    bar.appendChild(dot); bar.appendChild(t); bar.appendChild(btn);
-    d.body.appendChild(bar);
+    d.body.appendChild(btn);
     const hint = d.createElement('div'); hint.className='hint';
     hint.textContent = 'Gravando… você pode usar outras abas (ex.: YouTube).';
     d.body.appendChild(hint);
@@ -1618,7 +1620,7 @@ async function openRecFloatWindow() {
 
   if ('documentPictureInPicture' in window) {
     try {
-      pipWindow = await window.documentPictureInPicture.requestWindow({ width: 300, height: 300 });
+      pipWindow = await window.documentPictureInPicture.requestWindow({ width: 260, height: 200 });
       buildContent(pipWindow);
       pipWindow.addEventListener('pagehide', () => { pipWindow = null; });
       return;
@@ -1627,7 +1629,7 @@ async function openRecFloatWindow() {
   // Fallback: popup comum (não fica "sempre no topo", mas permanece
   // visível como janela separada enquanto o usuário navega).
   try {
-    popupWindow = window.open('', 'mocapRecFloat', 'width=300,height=300,popup=yes');
+    popupWindow = window.open('', 'mocapRecFloat', 'width=260,height=200,popup=yes');
     if (popupWindow) buildContent(popupWindow);
   } catch(e) { console.warn('Popup bloqueado:', e); popupWindow = null; }
 }
