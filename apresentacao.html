@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Apresentação e Tutorial — MoCap Web CECAPE</title>
+<link rel="icon" href="https://cecapescs.com.br/proj/cecape-palavras/assets/img/Logo-CECAPE.png">
+<style>
+  :root {
+    --bg:#0a0c10; --surface2:#1a1f2b; --border:rgba(255,255,255,0.1);
+    --accent:#00e5a0; --accent2:#7b5ea7; --text:#e8eaf0; --text2:#8890a4;
+    --red:#ff4a6e; --yellow:#ffc947; --blue:#4a9eff;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html { scroll-behavior:smooth; }
+  body {
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',system-ui,sans-serif;
+    line-height:1.7;
+  }
+  a { color:var(--accent); }
+
+  /* ── Navegação fixa ── */
+  nav {
+    position:sticky; top:0; z-index:50;
+    background:rgba(11,36,61,0.95); backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--border);
+    display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+    padding:10px 24px;
+  }
+  nav img { height:28px; object-fit:contain; margin-right:8px; }
+  nav a {
+    font-size:12px; font-weight:600; color:var(--text2); text-decoration:none;
+    padding:6px 12px; border-radius:100px;
+  }
+  nav a:hover { color:var(--accent); background:rgba(0,229,160,0.08); }
+  nav .voltar { margin-left:auto; color:var(--accent); border:1px solid rgba(0,229,160,0.3); }
+
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+
+  /* ── Capa ── */
+  .hero {
+    text-align:center; padding:70px 20px 50px;
+    background:radial-gradient(ellipse at 50% 0%, rgba(29,78,216,.25) 0%, transparent 60%);
+  }
+  .hero .logos { display:flex; align-items:center; justify-content:center; gap:16px; margin-bottom:26px; }
+  .hero .logos img { height:52px; object-fit:contain; }
+  .hero .logos .div { width:1px; height:42px; background:rgba(255,255,255,0.2); }
+  .hero h1 { font-size:44px; font-weight:800; letter-spacing:-1px; }
+  .hero h1 span { color:var(--accent); }
+  .hero p.tag { font-size:19px; color:var(--text2); margin-top:10px; }
+  .hero .credit {
+    display:inline-block; margin-top:28px; padding:16px 28px;
+    background:var(--surface2); border:1px solid var(--border); border-radius:14px;
+    font-size:14px; line-height:1.9;
+  }
+  .hero .credit b { color:var(--accent); }
+
+  h2 {
+    font-size:26px; font-weight:800; margin:64px 0 8px;
+    padding-top:16px; letter-spacing:-0.5px;
+  }
+  h2 .n { color:var(--accent); font-family:monospace; margin-right:8px; }
+  h3 { font-size:17px; font-weight:700; margin:28px 0 6px; color:var(--accent); }
+  p.lead { color:var(--text2); font-size:15px; margin-bottom:16px; }
+  section p { font-size:15px; margin-bottom:12px; }
+
+  .box {
+    background:var(--surface2); border:1px solid var(--border);
+    border-radius:12px; padding:20px 24px; margin:16px 0; font-size:14.5px;
+  }
+  .box.destaque { border-color:rgba(0,229,160,0.35); background:rgba(0,229,160,0.06); }
+  .box.alerta { border-color:rgba(255,201,71,0.35); background:rgba(255,201,71,0.06); }
+  .box.perigo { border-color:rgba(255,74,110,0.35); background:rgba(255,74,110,0.06); }
+
+  /* ── Cards de funcionalidades ── */
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:14px; margin:20px 0; }
+  .card {
+    background:var(--surface2); border:1px solid var(--border);
+    border-radius:12px; padding:20px;
+  }
+  .card .ico { font-size:26px; }
+  .card h4 { font-size:15px; margin:10px 0 6px; }
+  .card p { font-size:13px; color:var(--text2); margin:0; }
+
+  /* ── Tabela comparativa ── */
+  .tbl-wrap { overflow-x:auto; margin:20px 0; border:1px solid var(--border); border-radius:12px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; min-width:760px; }
+  th, td { padding:11px 14px; text-align:center; border-bottom:1px solid var(--border); }
+  th { background:rgba(255,255,255,0.04); font-size:12px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text2); }
+  td:first-child, th:first-child { text-align:left; font-weight:600; }
+  tr:last-child td { border-bottom:none; }
+  td .sim { color:var(--accent); font-weight:800; }
+  td .nao { color:var(--red); font-weight:800; }
+  td .parc { color:var(--yellow); font-weight:700; font-size:11px; }
+  .col-nos { background:rgba(0,229,160,0.07); }
+
+  /* ── Passos do tutorial ── */
+  .passo {
+    display:flex; gap:18px; margin:22px 0;
+    background:var(--surface2); border:1px solid var(--border);
+    border-radius:12px; padding:20px 22px;
+  }
+  .passo .num {
+    flex-shrink:0; width:44px; height:44px; border-radius:50%;
+    background:var(--accent); color:#0a0c10; font-weight:800; font-size:19px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .passo .txt h4 { font-size:16px; margin-bottom:6px; }
+  .passo .txt p, .passo .txt li { font-size:14px; color:var(--text); }
+  .passo .txt .obs { font-size:12.5px; color:var(--text2); margin-top:8px; }
+  .passo ul, .passo ol { margin:8px 0 0 20px; }
+  .passo li { margin-bottom:6px; }
+  kbd {
+    background:#0a0c10; border:1px solid var(--border); border-bottom-width:2px;
+    border-radius:5px; padding:1px 7px; font-family:monospace; font-size:12px;
+  }
+  .btn-ex {
+    display:inline-block; padding:3px 10px; border-radius:6px; font-size:12px; font-weight:700;
+    background:rgba(0,229,160,0.15); color:var(--accent); border:1px solid rgba(0,229,160,0.3);
+    white-space:nowrap;
+  }
+  .btn-ex.vermelho { background:rgba(255,74,110,0.12); color:var(--red); border-color:rgba(255,74,110,0.3); }
+  .btn-ex.cinza { background:rgba(255,255,255,0.06); color:var(--text); border-color:var(--border); }
+
+  /* ── FAQ ── */
+  details {
+    background:var(--surface2); border:1px solid var(--border);
+    border-radius:10px; padding:14px 18px; margin:10px 0;
+  }
+  summary { cursor:pointer; font-weight:700; font-size:14px; }
+  summary:hover { color:var(--accent); }
+  details p { font-size:13.5px; color:var(--text2); margin-top:10px; }
+
+  footer {
+    border-top:1px solid var(--border); margin-top:70px; padding:30px 24px;
+    text-align:center; font-size:12.5px; color:var(--text2); line-height:2;
+  }
+  footer b { color:var(--accent); }
+
+  @media print {
+    nav { display:none; }
+    body { background:#fff; color:#111; }
+  }
+  @media (max-width:640px) {
+    .hero h1 { font-size:32px; }
+    .passo { flex-direction:column; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <img src="https://cecapescs.com.br/proj/cecape-palavras/assets/img/Logo-CECAPE.png" alt="CECAPE" onerror="this.style.display='none'">
+  <a href="#sobre">O que é</a>
+  <a href="#historia">História</a>
+  <a href="#recursos">Recursos</a>
+  <a href="#comparativo">Comparativo</a>
+  <a href="#tutorial">Tutorial</a>
+  <a href="#admin">Página Admin</a>
+  <a href="#faq">Dúvidas</a>
+  <a href="index.html" class="voltar">🎥 Abrir o sistema</a>
+</nav>
+
+<div class="hero">
+  <div class="logos">
+    <img src="https://cecapescs.com.br/proj/cecape-palavras/assets/img/Logo-Prefeitura---SEEDUC.png" alt="SEEDUC" onerror="this.style.display='none'">
+    <div class="div"></div>
+    <img src="https://cecapescs.com.br/proj/cecape-palavras/assets/img/Logo-CECAPE.png" alt="CECAPE" onerror="this.style.display='none'">
+  </div>
+  <h1>Mocap<span>Web</span> CECAPE</h1>
+  <p class="tag">Sistema de captura de movimentos que funciona direto no navegador — sem instalar nada</p>
+  <div class="credit">
+    Criado e desenvolvido pelo <b>Prof. Flávio Roberto Spina</b><br>
+    O sistema pertence ao <b>CECAPE — Centro de Capacitação dos Profissionais da Educação</b><br>
+    Dra. Zilda Arns · São Caetano do Sul
+  </div>
+</div>
+
+<div class="wrap">
+
+<!-- ═══════════════ O QUE É ═══════════════ -->
+<section id="sobre">
+  <h2><span class="n">01</span>O que é e para que serve</h2>
+  <p class="lead">Entenda em 1 minuto o que o sistema faz.</p>
+  <p>O <b>MocapWeb</b> é um sistema de <b>captura de movimentos</b> (em inglês, <i>motion capture</i> ou <i>mocap</i>): ele usa a câmera do computador para "enxergar" as pessoas e desenhar, em tempo real, o <b>esqueleto digital</b> de cada uma — 33 pontos do corpo (cabeça, ombros, cotovelos, quadris, joelhos...) e também os detalhes do rosto (boca, olhos, sobrancelhas).</p>
+  <p>Tudo acontece <b>dentro do navegador</b> (Google Chrome), sem instalar nenhum programa e sem enviar imagens para a internet — a análise é feita no próprio computador.</p>
+  <div class="cards">
+    <div class="card"><div class="ico">🏫</div><h4>Educação Física e Dança</h4><p>Acompanhe coreografias e exercícios, compare os movimentos dos alunos com um vídeo de referência e conte repetições automaticamente.</p></div>
+    <div class="card"><div class="ico">🎭</div><h4>Teatro e Expressão Corporal</h4><p>Visualize a postura e a expressão facial dos alunos em atividades artísticas.</p></div>
+    <div class="card"><div class="ico">📐</div><h4>Análise de Movimento</h4><p>Meça ângulos de joelhos e cotovelos em tempo real, com gráfico — útil em estudos de postura e biomecânica escolar.</p></div>
+    <div class="card"><div class="ico">🎬</div><h4>Animação 3D</h4><p>Exporte os movimentos gravados para o Blender (arquivo BVH) e anime personagens em projetos de tecnologia.</p></div>
+  </div>
+</section>
+
+<!-- ═══════════════ HISTÓRIA ═══════════════ -->
+<section id="historia">
+  <h2><span class="n">02</span>Como o sistema nasceu</h2>
+  <div class="box destaque">
+    <p>Tudo começou quando os professores <b>Débora</b> e <b>Márcio</b> procuraram o <b>Prof. Flávio Roberto Spina</b> com uma dor real do dia a dia: eles precisavam de uma ferramenta de captura de movimentos para as atividades com os alunos, mas as soluções existentes no mercado eram <b>caras, limitadas ou complicadas demais</b> para a realidade da escola pública.</p>
+    <p style="margin-top:10px;">A pergunta foi direta: <i>"Seria possível desenvolver algo parecido para a gente?"</i></p>
+    <p style="margin-top:10px;">O Prof. Flávio aceitou o desafio e desenvolveu o <b>MocapWeb</b> — um sistema completo, gratuito para a rede, que roda em qualquer computador com webcam e navegador, feito sob medida para as necessidades dos profissionais da educação de São Caetano do Sul. Hoje o sistema pertence ao <b>CECAPE — Centro de Capacitação dos Profissionais da Educação Dra. Zilda Arns</b>.</p>
+  </div>
+</section>
+
+<!-- ═══════════════ RECURSOS ═══════════════ -->
+<section id="recursos">
+  <h2><span class="n">03</span>O que o sistema oferece</h2>
+  <div class="cards">
+    <div class="card"><div class="ico">👥</div><h4>Captura de várias pessoas</h4><p>Detecta até 6 pessoas ao mesmo tempo, cada uma com esqueleto de cor própria e etiqueta P1, P2, P3...</p></div>
+    <div class="card"><div class="ico">😀</div><h4>Rosto e expressões</h4><p>Malha facial com boca, olhos e sobrancelhas — percebe quando a boca abre e os olhos fecham.</p></div>
+    <div class="card"><div class="ico">🖥️</div><h4>Tela cheia, corpo inteiro</h4><p>O vídeo ocupa 100% da tela sem cortar cabeça nem pés. Tecla <kbd>F</kbd> para tela cheia.</p></div>
+    <div class="card"><div class="ico">⏺️</div><h4>Gravação em segundo plano</h4><p>A gravação continua mesmo se você trocar de aba (ex.: abrir o YouTube). Uma janelinha flutuante com o botão de parar acompanha você.</p></div>
+    <div class="card"><div class="ico">🪞</div><h4>Modo espelho com pontuação</h4><p>Compare os movimentos com um vídeo de referência (arquivo ou aba do YouTube) e receba uma nota de semelhança de 0 a 100% ao vivo.</p></div>
+    <div class="card"><div class="ico">🔢</div><h4>Contador de repetições</h4><p>Conta agachamentos, polichinelos, flexões de cotovelo e elevações de braços automaticamente.</p></div>
+    <div class="card"><div class="ico">📊</div><h4>Ângulos articulares</h4><p>Joelhos e cotovelos medidos em graus, em tempo real, com gráfico de evolução.</p></div>
+    <div class="card"><div class="ico">💾</div><h4>Exportações completas</h4><p>Vídeo (MP4/WebM), planilha (CSV), dados (JSON) e esqueleto 3D animado (BVH para o Blender).</p></div>
+    <div class="card"><div class="ico">🔐</div><h4>Login e banco de dados</h4><p>Acesso por senha, capturas salvas por evento e página administrativa para o professor consultar tudo.</p></div>
+  </div>
+</section>
+
+<!-- ═══════════════ COMPARATIVO ═══════════════ -->
+<section id="comparativo">
+  <h2><span class="n">04</span>Comparativo com outras aplicações</h2>
+  <p class="lead">Antes de desenvolver, pesquisamos as principais ferramentas de captura de movimento do mercado (Rokoko Vision, RADiCAL, Plask, DeepMotion e FreeMoCap). Veja a comparação:</p>
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Recurso</th>
+          <th class="col-nos">MocapWeb<br>CECAPE</th>
+          <th>Rokoko<br>Vision</th>
+          <th>RADiCAL</th>
+          <th>Plask</th>
+          <th>DeepMotion</th>
+          <th>FreeMoCap</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Gratuito e sem limite de tempo</td><td class="col-nos"><span class="sim">✔</span></td><td><span class="parc">15 s grátis</span></td><td><span class="parc">créditos</span></td><td><span class="parc">limitado</span></td><td><span class="parc">limitado</span></td><td><span class="sim">✔</span></td></tr>
+        <tr><td>Funciona no navegador, sem instalar</td><td class="col-nos"><span class="sim">✔</span></td><td><span class="sim">✔</span></td><td><span class="sim">✔</span></td><td><span class="sim">✔</span></td><td><span class="sim">✔</span></td><td><span class="nao">✘</span></td></tr>
+        <tr><td>Várias pessoas ao mesmo tempo (tempo real)</td><td class="col-nos"><span class="sim">✔ até 6</span></td><td><span class="nao">✘</span></td><td><span class="parc">pago</span></td><td><span class="nao">✘</span></td><td><span class="parc">pago</span></td><td><span class="parc">offline</span></td></tr>
+        <tr><td>Dados ficam no computador (privacidade/LGPD)</td><td class="col-nos"><span class="sim">✔</span></td><td><span class="nao">✘ nuvem</span></td><td><span class="nao">✘ nuvem</span></td><td><span class="nao">✘ nuvem</span></td><td><span class="nao">✘ nuvem</span></td><td><span class="sim">✔</span></td></tr>
+        <tr><td>Grava enquanto você usa o YouTube (aba em 2º plano)</td><td class="col-nos"><span class="sim">✔</span></td><td><span class="nao">✘</span></td><td><span class="nao">✘</span></td><td><span class="nao">✘</span></td><td><span class="nao">✘</span></td><td><span class="nao">✘</span></td></tr>
+        <tr><td>Nota de semelhança com vídeo de referência</td><td class="col-nos"><span class="sim">✔</span></td><td><span class="nao">✘</span></td><td><span class="nao">✘</span></td><td><span class="nao">✘</span></td><td><span class="nao">✘</span></td><td><span class="nao">✘</span></td></tr>
+        <tr><td>Contador automático de exercícios</td><td class="col-nos"><span class="sim">✔</span></td><td><span class="nao">✘</span></td><td><span class="nao">✘</span></td><td><span class="nao">✘</span></td><td><span class="nao">✘</span></td><td><span class="nao">✘</span></td></tr>
+        <tr><td>Ângulos articulares em tempo real</td><td class="col-nos"><span class="sim">✔</span></td><td><span class="nao">✘</span></td><td><span class="nao">✘</span></td><td><span class="nao">✘</span></td><td><span class="nao">✘</span></td><td><span class="parc">offline</span></td></tr>
+        <tr><td>Rosto e expressões junto com o corpo</td><td class="col-nos"><span class="sim">✔</span></td><td><span class="nao">✘</span></td><td><span class="sim">✔</span></td><td><span class="nao">✘</span></td><td><span class="parc">pago</span></td><td><span class="nao">✘</span></td></tr>
+        <tr><td>Exporta BVH para Blender</td><td class="col-nos"><span class="sim">✔</span></td><td><span class="sim">✔</span></td><td><span class="sim">✔</span></td><td><span class="sim">✔</span></td><td><span class="sim">✔</span></td><td><span class="sim">✔</span></td></tr>
+        <tr><td>Painel do professor por evento (dia/horário)</td><td class="col-nos"><span class="sim">✔</span></td><td><span class="nao">✘</span></td><td><span class="nao">✘</span></td><td><span class="nao">✘</span></td><td><span class="nao">✘</span></td><td><span class="nao">✘</span></td></tr>
+        <tr><td>Em português, feito para a escola</td><td class="col-nos"><span class="sim">✔</span></td><td><span class="nao">✘</span></td><td><span class="nao">✘</span></td><td><span class="nao">✘</span></td><td><span class="nao">✘</span></td><td><span class="nao">✘</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="box destaque">
+    <b>Nossos diferenciais em resumo:</b> o MocapWeb é o único que junta, num sistema gratuito, em português e sem limite de uso: captura de <b>várias pessoas ao mesmo tempo</b>, <b>gravação que continua em outra aba</b> (para dançar vendo o YouTube), <b>nota de semelhança</b> com vídeo de referência, <b>contador de exercícios</b>, <b>privacidade total</b> (nenhuma imagem sai do computador — importante pela LGPD, principalmente com crianças) e um <b>painel do professor</b> organizado por evento.
+  </div>
+</section>
+
+<!-- ═══════════════ TUTORIAL ═══════════════ -->
+<section id="tutorial">
+  <h2><span class="n">05</span>Tutorial completo — passo a passo</h2>
+  <p class="lead">Escrito para quem nunca usou nada parecido. Siga na ordem, com calma, que dá certo. 😉</p>
+
+  <h3>Antes de começar — o que você precisa</h3>
+  <div class="box">
+    <ul style="margin-left:20px;">
+      <li>Um <b>computador ou notebook com webcam</b> (a câmera embutida do notebook serve);</li>
+      <li>O navegador <b>Google Chrome</b> ou <b>Microsoft Edge</b> atualizado (é neles que tudo funciona melhor);</li>
+      <li><b>Internet</b> na primeira vez que abrir (o sistema baixa a "inteligência" que reconhece o corpo; depois fica rápido);</li>
+      <li>Um espaço onde as pessoas apareçam <b>de corpo inteiro</b> na câmera — afaste-se uns 2 a 3 metros;</li>
+      <li>Boa iluminação: evite ficar contra a janela (a luz por trás vira sombra).</li>
+    </ul>
+  </div>
+
+  <h3>Parte A — Entrar no sistema (login)</h3>
+
+  <div class="passo"><div class="num">1</div><div class="txt">
+    <h4>Abra o endereço do sistema</h4>
+    <p>No Chrome, digite o endereço do MocapWeb fornecido pelo CECAPE e aperte <kbd>Enter</kbd>. A primeira tela é a de <b>login</b> (entrada).</p>
+  </div></div>
+
+  <div class="passo"><div class="num">2</div><div class="txt">
+    <h4>Digite seu e-mail e senha</h4>
+    <p>Use o e-mail e a senha que o administrador do CECAPE cadastrou para você e clique em <span class="btn-ex">Entrar</span>.</p>
+    <p class="obs">⚠️ Se errar a senha 5 vezes, o sistema bloqueia a conta por 15 minutos, por segurança. Esqueceu a senha? Fale com o administrador.</p>
+  </div></div>
+
+  <div class="passo"><div class="num">3</div><div class="txt">
+    <h4>Aguarde o carregamento</h4>
+    <p>Na primeira vez, aparece uma tela escura escrita <i>"Carregando modelo de pose..."</i>. É normal demorar um pouco (até 1 minuto) — é o sistema baixando a inteligência artificial. Nas próximas vezes é bem mais rápido.</p>
+  </div></div>
+
+  <h3>Parte B — Ligar a câmera e ver o esqueleto</h3>
+
+  <div class="passo"><div class="num">4</div><div class="txt">
+    <h4>Clique em "Iniciar câmera"</h4>
+    <p>É o botão <b>verde</b> no alto da coluna da direita. O navegador vai perguntar se pode usar a câmera — clique em <b>Permitir</b>.</p>
+    <p class="obs">💡 Se aparecer "Permissão negada": clique no cadeado 🔒 ao lado do endereço do site → Câmera → Permitir → recarregue a página.</p>
+  </div></div>
+
+  <div class="passo"><div class="num">5</div><div class="txt">
+    <h4>Fique na frente da câmera</h4>
+    <p>Em 1 ou 2 segundos o sistema desenha o <b>esqueleto colorido</b> sobre cada pessoa, com uma etiqueta <b>P1, P2, P3...</b> em cima da cabeça. No rodapé aparece "Rastreando X pessoa(s)".</p>
+    <ul>
+      <li><b>Quantas pessoas?</b> Ajuste no painel <b>"Pessoas &amp; desempenho"</b> → arraste "Máx. de pessoas" (1 a 6).</li>
+      <li><b>Está lento/travando?</b> No mesmo painel, deixe a "Qualidade do modelo" em <b>Rápido (lite)</b>.</li>
+    </ul>
+  </div></div>
+
+  <div class="passo"><div class="num">6</div><div class="txt">
+    <h4>Tela cheia (opcional)</h4>
+    <p>Clique no botão <span class="btn-ex cinza">⛶ Tela cheia</span> no canto do vídeo, ou aperte a tecla <kbd>F</kbd>, ou dê dois cliques no vídeo. Para sair, aperte <kbd>Esc</kbd>.</p>
+  </div></div>
+
+  <h3>Parte C — Gravar (inclusive dançando com o YouTube)</h3>
+
+  <div class="passo"><div class="num">7</div><div class="txt">
+    <h4>Clique em "Iniciar gravação"</h4>
+    <p>É o botão <span class="btn-ex vermelho">● Iniciar gravação</span> no painel <b>"Gravação"</b> (final da coluna da direita). Vão aparecer:</p>
+    <ul>
+      <li>Um indicador <b>REC</b> com cronômetro na lateral;</li>
+      <li>Uma <b>janelinha flutuante</b> separada, com o cronômetro e o botão <span class="btn-ex vermelho">⏹ Parar gravação</span>.</li>
+    </ul>
+    <p class="obs">🔒 A janelinha <b>não mostra a imagem da câmera</b> de propósito — assim ninguém precisa se ver na tela enquanto dança.</p>
+  </div></div>
+
+  <div class="passo"><div class="num">8</div><div class="txt">
+    <h4>Pode ir para o YouTube!</h4>
+    <p>Abra outra aba, entre no YouTube e coloque o vídeo com os movimentos a imitar. <b>A gravação continua normalmente</b>, e a janelinha flutuante fica sempre visível, por cima de tudo.</p>
+  </div></div>
+
+  <div class="passo"><div class="num">9</div><div class="txt">
+    <h4>Para encerrar, clique em "⏹ Parar gravação"</h4>
+    <p>Na janelinha flutuante (de qualquer aba) ou no botão da lateral. A janelinha se fecha sozinha e aparece a área <b>"Exportar / revisar"</b>.</p>
+  </div></div>
+
+  <h3>Parte D — Salvar e exportar a captura</h3>
+
+  <div class="passo"><div class="num">10</div><div class="txt">
+    <h4>Escolha o que fazer com a gravação</h4>
+    <ul>
+      <li><span class="btn-ex cinza">▶ Reproduzir captura</span> — reveja o esqueleto gravado, quadro a quadro, com a barrinha de avanço;</li>
+      <li><span class="btn-ex cinza">Salvar MP4</span> — baixa o <b>vídeo</b> com os esqueletos desenhados;</li>
+      <li><span class="btn-ex cinza">CSV</span> — planilha para Excel; <span class="btn-ex cinza">JSON</span> — dados completos; <span class="btn-ex cinza">BVH</span> — esqueleto animado para o Blender;</li>
+      <li><span class="btn-ex cinza">☁ Salvar no servidor</span> — guarda a captura no banco de dados do CECAPE (veja o passo 11).</li>
+    </ul>
+  </div></div>
+
+  <div class="passo"><div class="num">11</div><div class="txt">
+    <h4>Salvar no servidor (para o professor consultar depois)</h4>
+    <ol>
+      <li>Clique em <span class="btn-ex cinza">☁ Salvar no servidor</span>;</li>
+      <li>Escolha o <b>evento</b> (dia e horário) — os eventos são criados na página Admin;</li>
+      <li>Digite o <b>participante</b> usando um código, ex.: <b>"Aluno 07"</b> ou <b>"Turma A"</b> — <u>evite nome completo</u> (proteção de dados das crianças — LGPD);</li>
+      <li>Clique em <b>Salvar</b> e aguarde o ✅.</li>
+    </ol>
+  </div></div>
+
+  <h3>Parte E — Modo espelho (nota de semelhança)</h3>
+
+  <div class="passo"><div class="num">12</div><div class="txt">
+    <h4>Escolha a referência</h4>
+    <p>No painel <b>"Modo espelho — vídeo referência"</b>:</p>
+    <ul>
+      <li><span class="btn-ex cinza">📂 Carregar vídeo referência</span> — escolhe um <b>arquivo de vídeo</b> do computador; ou</li>
+      <li><span class="btn-ex cinza">🖥 Usar aba do YouTube</span> — o navegador abre uma janela perguntando <b>qual aba compartilhar</b>: clique na aba do YouTube e em <b>Compartilhar</b>.</li>
+    </ul>
+    <p class="obs">💡 Deixe o vídeo do YouTube já aberto em outra aba antes de clicar no botão.</p>
+  </div></div>
+
+  <div class="passo"><div class="num">13</div><div class="txt">
+    <h4>Acompanhe a pontuação</h4>
+    <p>A tela se divide: <b>vídeo de referência à esquerda</b> (esqueletos amarelos, R1, R2...) e <b>câmera à direita</b>. No topo aparece:</p>
+    <ul>
+      <li>A <b>nota de semelhança</b>: <b style="color:#00e5a0;">verde</b> (≥80%) = muito parecido · <b style="color:#ffc947;">amarelo</b> (≥55%) = razoável · <b style="color:#ff4a6e;">vermelho</b> = diferente;</li>
+      <li>A contagem <b>"Vídeo: 2 · Câmera: 2 ✓"</b> — confere se o nº de pessoas bate.</li>
+    </ul>
+    <p class="obs">Durante uma gravação, a nota também aparece na janelinha flutuante — dá para dançar no YouTube vendo o placar!</p>
+  </div></div>
+
+  <h3>Parte F — Contador de repetições</h3>
+
+  <div class="passo"><div class="num">14</div><div class="txt">
+    <h4>Ative um exercício</h4>
+    <p>No painel <b>"Exercícios — contador de repetições"</b>, escolha: <b>Agachamento</b>, <b>Polichinelo</b>, <b>Flexão de cotovelo</b> ou <b>Elevação de braços</b>. O número aumenta sozinho a cada repetição completa da pessoa selecionada. Use <span class="btn-ex cinza">Zerar contador</span> para recomeçar.</p>
+  </div></div>
+</section>
+
+<!-- ═══════════════ ADMIN ═══════════════ -->
+<section id="admin">
+  <h2><span class="n">06</span>Página administrativa (para professores)</h2>
+  <p class="lead">Onde os professores criam os eventos e consultam todas as capturas salvas.</p>
+
+  <div class="passo"><div class="num">1</div><div class="txt">
+    <h4>Entre na página Admin</h4>
+    <p>Clique no link <b>Admin</b> no topo do sistema (ao lado do seu nome), ou acesse <b>admin.php</b> diretamente.</p>
+  </div></div>
+
+  <div class="passo"><div class="num">2</div><div class="txt">
+    <h4>Crie o evento (dia e horário)</h4>
+    <p>No quadro <b>"➕ Criar evento"</b>: preencha o título (ex.: <i>"Oficina de dança — 5º ano"</i>), a <b>data</b>, o <b>horário de início</b> (e fim, se quiser) e o local. Clique em <b>Criar evento</b>. Faça isso <u>antes</u> da atividade com os alunos.</p>
+  </div></div>
+
+  <div class="passo"><div class="num">3</div><div class="txt">
+    <h4>Consulte as capturas na tabela dinâmica</h4>
+    <ul>
+      <li><b>Filtre</b> escolhendo o evento (dia · horário) ou uma data;</li>
+      <li><b>Busque</b> digitando o participante ou o professor;</li>
+      <li><b>Ordene</b> qualquer coluna clicando no título dela (clique de novo para inverter);</li>
+      <li>Veja o <b>resumo</b> em cartões: nº de capturas, participantes, tempo total e semelhança média;</li>
+      <li>Baixe o <span class="btn-ex cinza">⬇ JSON</span> de qualquer captura ou exporte a <b>tabela inteira em CSV</b> (abre no Excel);</li>
+      <li>Exclua capturas erradas com o botão 🗑 (pede confirmação).</li>
+    </ul>
+  </div></div>
+
+  <div class="box alerta">
+    <b>⚙️ Instalação (uma vez só, pelo responsável técnico):</b> subir os arquivos para a hospedagem → importar <code>db/schema.sql</code> no phpMyAdmin → configurar <code>api/config.php</code> → abrir <code>api/criar_admin.php</code> para criar o primeiro administrador → <b>apagar esse arquivo</b>. Instruções completas no README do projeto.
+  </div>
+</section>
+
+<!-- ═══════════════ FAQ ═══════════════ -->
+<section id="faq">
+  <h2><span class="n">07</span>Dúvidas frequentes e problemas comuns</h2>
+
+  <details><summary>A câmera não liga / aparece "Permissão negada"</summary>
+    <p>Clique no <b>cadeado 🔒</b> (ou ícone de câmera) na barra de endereço do Chrome → Câmera → <b>Permitir</b> → recarregue a página (tecla <kbd>F5</kbd>). Se a câmera estiver em uso por outro programa (Teams, Meet...), feche-o antes.</p>
+  </details>
+  <details><summary>O esqueleto está lento ou "picotando"</summary>
+    <p>No painel "Pessoas &amp; desempenho": deixe a <b>Qualidade do modelo</b> em <b>Rápido (lite)</b> e reduza o <b>máx. de pessoas</b> para o número real de participantes. Desligar o botão <b>Rosto</b> também ajuda em computadores mais fracos. Feche outras abas pesadas.</p>
+  </details>
+  <details><summary>Não aparece o corpo inteiro na tela</summary>
+    <p>Afaste as pessoas da câmera (2 a 3 metros) e use o botão <b>⛶ Tela cheia</b>. O sistema nunca corta a imagem — se os pés não aparecem, é porque a câmera não os está enxergando.</p>
+  </details>
+  <details><summary>A janelinha flutuante de gravação não apareceu</summary>
+    <p>Ela funciona no <b>Chrome e Edge atualizados</b> (versão 116 ou superior). Em outros navegadores, abre-se uma janela comum — se nada abrir, verifique se o navegador está bloqueando pop-ups (ícone na barra de endereço) e permita.</p>
+  </details>
+  <details><summary>Troquei de aba e a nota de semelhança sumiu</summary>
+    <p>A nota continua sendo calculada e aparece <b>na janelinha flutuante</b> enquanto você estiver gravando. Volte à aba do sistema para ver o painel completo.</p>
+  </details>
+  <details><summary>O botão "Usar aba do YouTube" pediu para compartilhar — é seguro?</summary>
+    <p>Sim. É o mesmo recurso usado em videochamadas para mostrar a tela. <b>Você escolhe exatamente qual aba</b> compartilhar, e o conteúdo <b>não sai do seu computador</b> — serve apenas para o sistema analisar os movimentos do vídeo. Para encerrar, clique em "Parar compartilhamento" ou no botão ✕ Fechar referência.</p>
+  </details>
+  <details><summary>Posso usar o nome completo dos alunos ao salvar?</summary>
+    <p><b>Evite.</b> Pela LGPD (Lei Geral de Proteção de Dados), o recomendado é usar códigos ("Aluno 07") ou apenas o primeiro nome. O sistema não envia nenhum vídeo ao servidor — só os pontos numéricos do esqueleto — mas quanto menos dados pessoais, melhor.</p>
+  </details>
+  <details><summary>Esqueci minha senha</summary>
+    <p>Procure o administrador do sistema no CECAPE — ele pode cadastrar uma nova senha para você. Após 5 tentativas erradas, aguarde 15 minutos antes de tentar de novo.</p>
+  </details>
+  <details><summary>O que é exportado no CSV / JSON / BVH?</summary>
+    <p><b>CSV</b>: planilha com as posições dos 33 pontos do corpo, quadro a quadro, por pessoa — abre no Excel. <b>JSON</b>: os mesmos dados em formato para programadores. <b>BVH</b>: o esqueleto animado, que pode ser importado no Blender (File → Import → Motion Capture .bvh) para animar personagens 3D.</p>
+  </details>
+</section>
+
+</div>
+
+<footer>
+  <b>MocapWeb CECAPE</b> — Sistema de captura de movimentos<br>
+  Criado e desenvolvido pelo <b>Prof. Flávio Roberto Spina</b><br>
+  CECAPE — Centro de Capacitação dos Profissionais da Educação Dra. Zilda Arns · São Caetano do Sul<br>
+  Agradecimento especial aos professores <b>Débora</b> e <b>Márcio</b>, que trouxeram o desafio que deu origem ao projeto.
+</footer>
+
+</body>
+</html>
