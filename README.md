@@ -4,7 +4,11 @@ Sistema de captura de movimentos corporais e faciais 100% no navegador (webcam �
 
 ## Funcionalidades
 
-- **Captura multi-pessoa** — detecta até **6 pessoas simultaneamente** (MediaPipe Tasks Vision · Pose Landmarker), cada uma com esqueleto em cor própria e etiqueta P1, P2…
+- **Captura multi-pessoa com dois motores** (seletor "Motor de detecção"):
+  - **MediaPipe Pose Landmarker** — 1 a 6 pessoas, com pontos 3D (permite exportar BVH). É um modelo de uma pessoa que o Google estende repetindo o detector; ele **suprime pessoas muito próximas** ([issue #4681](https://github.com/google-ai-edge/mediapipe/issues/4681)) e não garante mais do que poucas pessoas ([issue #5842](https://github.com/google-ai-edge/mediapipe/issues/5842)) — por isso "6 configuradas, 3 detectadas".
+  - **YOLOv8-pose** (`models/yolov8n-pose.onnx` e `yolov8s-pose.onnx`, via ONNX Runtime Web) — **até 20 pessoas**: modelo de estágio único que detecta todas as pessoas do quadro de uma vez, sem a supressão de vizinhos e com custo quase constante. Usa **WebGPU** quando disponível (Chrome/Edge) e cai para CPU (WASM) automaticamente. Acima de 6 pessoas o sistema troca para este motor sozinho.
+- **Identidade estável (P1, P2…)** — um rastreador casa cada detecção com a pessoa do quadro anterior (posição prevista + tamanho do tronco) e mantém a identidade por ~2 s quando a pessoa some (ex.: passa atrás de outra), religando o mesmo número ao reaparecer. Cada pessoa tem esqueleto em cor própria e etiqueta P1, P2…
+- **Grade de calibração** (botão no painel Visualização) — mostra o limite da câmera, a **zona segura** e a grade A/B/C × 1/2/3 para marcar o chão com fita; veja `docs/Guia-Marcacao-do-Piso.pdf`
 - **Malha facial** (boca, olhos, sobrancelhas, expressões) para vários rostos (Face Landmarker)
 - **Tela 100% sem rolagem** — o vídeo usa `object-fit: contain`, mostrando o **corpo inteiro** sem cortes; botão **⛶ Tela cheia** (tecla `F` ou duplo clique) maximiza o vídeo no monitor sem bordas
 - **Gravação contínua em segundo plano** — a gravação **não para ao trocar de aba** (ex.: abrir o YouTube para imitar movimentos de um vídeo):
@@ -25,6 +29,7 @@ Sistema de captura de movimentos corporais e faciais 100% no navegador (webcam �
 - Painéis laterais (keypoints, ângulos, gráfico) atualizados a ~6 Hz em vez de a cada quadro
 - Malha facial processada a cada 2 quadros
 - Se ainda estiver lento: reduza o **máx. de pessoas**, desligue **Rosto**, ou use um navegador com aceleração de GPU ativada
+- No motor YOLO: em computadores **sem WebGPU** a análise roda na CPU (~2–6 fps); use "Resolução de análise" 320/416 px e o modelo **nano**. Com WebGPU (Chrome/Edge em Windows/macOS) roda a 20–60 fps mesmo com 20 pessoas. Os arquivos `.onnx` ficam na pasta `models/` (servidos junto com o `index.html`, sem CDN externo)
 
 ## Login, banco de dados e página administrativa (opcional)
 

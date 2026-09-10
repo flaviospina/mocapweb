@@ -209,7 +209,7 @@
 <section id="recursos">
   <h2><span class="n">03</span>O que o sistema oferece</h2>
   <div class="cards">
-    <div class="card"><div class="ico">👥</div><h4>Captura de várias pessoas</h4><p>Detecta até 6 pessoas ao mesmo tempo, cada uma com esqueleto de cor própria e etiqueta P1, P2, P3...</p></div>
+    <div class="card"><div class="ico">👥</div><h4>Captura de várias pessoas</h4><p>Dois motores: MediaPipe (até 6 pessoas, com 3D) e YOLO-pose (até 20 pessoas). Cada pessoa recebe um número (P1, P2, P3...) que a acompanha mesmo quando ela passa atrás de alguém.</p></div>
     <div class="card"><div class="ico">😀</div><h4>Rosto e expressões</h4><p>Malha facial com boca, olhos e sobrancelhas — percebe quando a boca abre e os olhos fecham.</p></div>
     <div class="card"><div class="ico">🖥️</div><h4>Tela cheia, corpo inteiro</h4><p>O vídeo ocupa 100% da tela sem cortar cabeça nem pés. Tecla <kbd>F</kbd> para tela cheia.</p></div>
     <div class="card"><div class="ico">⏺️</div><h4>Gravação em segundo plano</h4><p>A gravação continua mesmo se você trocar de aba (ex.: abrir o YouTube). Uma janelinha flutuante com o botão de parar acompanha você.</p></div>
@@ -241,7 +241,7 @@
       <tbody>
         <tr><td>Gratuito e sem limite de tempo</td><td class="col-nos"><span class="sim">✔</span></td><td><span class="parc">15 s grátis</span></td><td><span class="parc">créditos</span></td><td><span class="parc">limitado</span></td><td><span class="parc">limitado</span></td><td><span class="sim">✔</span></td></tr>
         <tr><td>Funciona no navegador, sem instalar</td><td class="col-nos"><span class="sim">✔</span></td><td><span class="sim">✔</span></td><td><span class="sim">✔</span></td><td><span class="sim">✔</span></td><td><span class="sim">✔</span></td><td><span class="nao">✘</span></td></tr>
-        <tr><td>Várias pessoas ao mesmo tempo (tempo real)</td><td class="col-nos"><span class="sim">✔ até 6</span></td><td><span class="nao">✘</span></td><td><span class="parc">pago</span></td><td><span class="nao">✘</span></td><td><span class="parc">pago</span></td><td><span class="parc">offline</span></td></tr>
+        <tr><td>Várias pessoas ao mesmo tempo (tempo real)</td><td class="col-nos"><span class="sim">✔ até 20</span></td><td><span class="nao">✘</span></td><td><span class="parc">pago</span></td><td><span class="nao">✘</span></td><td><span class="parc">pago</span></td><td><span class="parc">offline</span></td></tr>
         <tr><td>Dados ficam no computador (privacidade/LGPD)</td><td class="col-nos"><span class="sim">✔</span></td><td><span class="nao">✘ nuvem</span></td><td><span class="nao">✘ nuvem</span></td><td><span class="nao">✘ nuvem</span></td><td><span class="nao">✘ nuvem</span></td><td><span class="sim">✔</span></td></tr>
         <tr><td>Grava enquanto você usa o YouTube (aba em 2º plano)</td><td class="col-nos"><span class="sim">✔</span></td><td><span class="nao">✘</span></td><td><span class="nao">✘</span></td><td><span class="nao">✘</span></td><td><span class="nao">✘</span></td><td><span class="nao">✘</span></td></tr>
         <tr><td>Nota de semelhança com vídeo de referência</td><td class="col-nos"><span class="sim">✔</span></td><td><span class="nao">✘</span></td><td><span class="nao">✘</span></td><td><span class="nao">✘</span></td><td><span class="nao">✘</span></td><td><span class="nao">✘</span></td></tr>
@@ -305,7 +305,8 @@
     <h4>Fique na frente da câmera</h4>
     <p>Em 1 ou 2 segundos o sistema desenha o <b>esqueleto colorido</b> sobre cada pessoa, com uma etiqueta <b>P1, P2, P3...</b> em cima da cabeça. No rodapé aparece "Rastreando X pessoa(s)".</p>
     <ul>
-      <li><b>Quantas pessoas?</b> Ajuste no painel <b>"Pessoas &amp; desempenho"</b> → arraste "Máx. de pessoas" (1 a 6).</li>
+      <li><b>Quantas pessoas?</b> Ajuste no painel <b>"Pessoas &amp; desempenho"</b> → arraste "Máx. de pessoas" (1 a 20). Até 6 o sistema usa o motor MediaPipe; acima disso troca sozinho para o YOLO-pose, feito para grupos grandes. Cada pessoa recebe um número (P1, P2…) que a acompanha mesmo se passar atrás de outra.</li>
+      <li><b>Vai marcar o chão com fita?</b> Ligue a <b>"Grade de calibração"</b> (painel Visualização) e siga o <i>Guia de marcação do piso</i> (pasta docs).</li>
       <li><b>Está lento/travando?</b> No mesmo painel, deixe a "Qualidade do modelo" em <b>Rápido (lite)</b>.</li>
     </ul>
   </div></div>

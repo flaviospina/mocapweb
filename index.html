@@ -490,6 +490,7 @@
         <p>Clique em "Iniciar câmera" para começar</p>
       </div>
       <video id="videoEl" autoplay playsinline muted style="display:none;"></video>
+      <canvas id="gridCanvas" style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none; display:none;"></canvas>
       <canvas id="overlayCanvas"></canvas>
       <canvas id="recordCanvas" style="display:none;"></canvas>
       <div class="viewport-overlay">
@@ -541,18 +542,40 @@
 
     <div class="panel">
       <div class="panel-title">Pessoas &amp; desempenho</div>
+      <div style="margin-bottom:10px;">
+        <div class="panel-title" style="margin-bottom:6px;">Motor de detecção</div>
+        <select id="engineSel" class="sel" onchange="onEngineChange(this.value)">
+          <option value="mediapipe" selected>MediaPipe — 1 a 6 pessoas (3D, BVH)</option>
+          <option value="yolo">YOLO-pose — até 20 pessoas (multidão)</option>
+        </select>
+      </div>
       <div class="range-row" style="margin-top:0;">
         <label>Máx. de pessoas</label>
-        <input type="range" min="1" max="6" value="2" id="numPeopleR" oninput="onNumPeopleChange(+this.value)">
+        <input type="range" min="1" max="20" value="2" id="numPeopleR" oninput="onNumPeopleChange(+this.value)">
         <span id="numPeopleV">2</span>
       </div>
-      <div style="margin-top:10px;">
+      <div id="qualityMp" style="margin-top:10px;">
         <div class="panel-title" style="margin-bottom:6px;">Qualidade do modelo</div>
         <select id="qualitySel" class="sel" onchange="onQualityChange(this.value)">
           <option value="lite" selected>Rápido (lite) — recomendado</option>
           <option value="full">Equilibrado (full)</option>
           <option value="heavy">Preciso (heavy) — lento</option>
         </select>
+      </div>
+      <div id="qualityYolo" style="margin-top:10px; display:none;">
+        <div class="panel-title" style="margin-bottom:6px;">Modelo YOLO</div>
+        <select id="yoloQualitySel" class="sel" onchange="onYoloQualityChange(this.value)">
+          <option value="n" selected>Rápido (nano) — recomendado</option>
+          <option value="s">Preciso (small) — pessoas distantes</option>
+        </select>
+        <div class="panel-title" style="margin:8px 0 6px;">Resolução de análise</div>
+        <select id="yoloSizeSel" class="sel" onchange="onYoloSizeChange(+this.value)">
+          <option value="0" selected>Automática</option>
+          <option value="320">320 px — mais rápido</option>
+          <option value="416">416 px</option>
+          <option value="640">640 px — mais preciso</option>
+        </select>
+        <div id="yoloStatus" style="margin-top:6px; font-size:10px; color:var(--text2); line-height:1.5;"></div>
       </div>
       <div style="margin-top:10px;">
         <div class="panel-title" style="margin-bottom:6px;">Painéis (ângulos/keypoints)</div>
@@ -597,6 +620,9 @@
       <div class="toggle-group" style="margin-top:6px;">
         <button class="toggle-btn" id="togMesh" onclick="toggleVis('mesh',this)">Malha</button>
         <button class="toggle-btn active" id="togFace" onclick="toggleVis('face',this)">Rosto</button>
+      </div>
+      <div class="toggle-group" style="margin-top:6px;">
+        <button class="toggle-btn" id="togGrid" onclick="toggleVis('grid',this)" title="Grade para marcar o chão com fita (limite da câmera e zona segura)">Grade de calibração</button>
       </div>
       <div class="range-row">
         <label>Linha</label>
@@ -754,6 +780,7 @@ let showSkeleton = true;
 let showPoints = true;
 let showMesh = false;
 let showFace = true;
+let showGrid = false;
 window.showVideo = true;
 window.lineWidth = 2;
 window.overlayAlpha = 0.8;
@@ -827,6 +854,7 @@ function toggleVis(type, btn) {
   if (type === 'points')   showPoints   = !showPoints;
   if (type === 'mesh')     showMesh     = !showMesh;
   if (type === 'face')     { showFace = !showFace; if (!showFace) lastFaces = []; }
+  if (type === 'grid')     { showGrid = !showGrid; drawGrid(); }
 }
 
 function toggleVideoVisibility() {
@@ -936,7 +964,11 @@ function rgba(hex, a) {
   return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
 }
 
-let POSE_CONNECTIONS = [];
+/* Ossos do esqueleto BlazePose (33 pontos). Normalmente vem do MediaPipe;
+   a lista abaixo é a reserva caso o MediaPipe não carregue (ex.: sem
+   acesso ao CDN do Google) — o motor YOLO continua desenhando os ossos. */
+const POSE_CONNECTIONS_FALLBACK = [[0,1],[1,2],[2,3],[3,7],[0,4],[4,5],[5,6],[6,8],[9,10],[11,12],[11,13],[13,15],[15,17],[15,19],[15,21],[17,19],[12,14],[14,16],[16,18],[16,20],[16,22],[18,20],[11,23],[12,24],[23,24],[23,25],[24,26],[25,27],[26,28],[27,29],[28,30],[29,31],[30,32],[27,31],[28,32]];
+let POSE_CONNECTIONS = POSE_CONNECTIONS_FALLBACK;
 
 /* A grade SEMPRE mostra os 13 pontos principais (os não detectados
    ficam esmaecidos). Assim a altura do painel nunca muda e os botões
@@ -1004,23 +1036,331 @@ function containRect(el, vw, vh) {
   return { ox:(dispW-w)/2, oy:(dispH-h)/2, w, h, dispW, dispH };
 }
 
-function processFrame() {
-  if (detecting) return;
+/* ══════════════════════════════════════════════════════
+   RASTREADOR DE IDENTIDADE (P1, P2, ... estáveis)
+   O detector devolve as pessoas em ordem ARBITRÁRIA a cada
+   quadro — por isso a etiqueta "P1" pulava de uma pessoa
+   para outra. Este rastreador casa cada detecção com a
+   pessoa do quadro anterior (posição prevista pelo movimento
+   + tamanho do tronco) e mantém a identidade viva por até
+   ~2 s quando a pessoa some (ex.: passou atrás de alguém),
+   religando o mesmo número quando ela reaparece perto de
+   onde deveria estar.
+   ══════════════════════════════════════════════════════ */
+class PersonTracker {
+  constructor() { this.tracks = []; this.maxLost = 60; }   // ~2 s a 30 fps
+  static feat(lm) {
+    const v = i => (lm[i] && (lm[i].visibility ?? 1) > 0.3) ? lm[i] : null;
+    const mid = (a,b) => ({ x:(a.x+b.x)/2, y:(a.y+b.y)/2 });
+    const sh = (v(11)&&v(12)) ? mid(lm[11],lm[12]) : null;
+    const hp = (v(23)&&v(24)) ? mid(lm[23],lm[24]) : null;
+    if (sh || hp) {
+      const c = (sh && hp) ? mid(sh,hp) : (sh || hp);
+      let size;
+      if (sh && hp) size = Math.hypot(sh.x-hp.x, sh.y-hp.y);
+      else if (v(11)&&v(12)) size = Math.hypot(lm[11].x-lm[12].x, lm[11].y-lm[12].y)*1.5;
+      else size = Math.hypot(lm[23].x-lm[24].x, lm[23].y-lm[24].y)*2.5;
+      return { cx:c.x, cy:c.y, size:Math.max(size, 0.05) };
+    }
+    const vis = lm.filter(p => p && (p.visibility ?? 1) > 0.3);
+    if (!vis.length) return null;
+    let x1=1,y1=1,x2=0,y2=0;
+    vis.forEach(p => { x1=Math.min(x1,p.x); y1=Math.min(y1,p.y); x2=Math.max(x2,p.x); y2=Math.max(y2,p.y); });
+    return { cx:(x1+x2)/2, cy:(y1+y2)/2, size:Math.max(Math.max(x2-x1,y2-y1)*0.5, 0.05) };
+  }
+  update(persons, worlds) {
+    const dets = persons.map((lm,i) => ({ lm, world:(worlds && worlds[i]) || null, f:PersonTracker.feat(lm) })).filter(d => d.f);
+    this.tracks.forEach(t => { t.px = t.cx + t.vx; t.py = t.cy + t.vy; });
+    const pairs = [];
+    this.tracks.forEach((t,ti) => dets.forEach((d,di) => {
+      const dist = Math.hypot(d.f.cx - t.px, d.f.cy - t.py);
+      const s = Math.max(t.size, d.f.size);
+      const gate = s * (1.3 + Math.min(t.lost, 30) * 0.06);   // portão cresce enquanto oculta
+      if (dist > gate) return;
+      pairs.push({ ti, di, cost: dist/s + 0.6*Math.abs(Math.log(d.f.size / t.size)) });
+    }));
+    pairs.sort((a,b) => a.cost - b.cost);
+    const usedT = new Set(), usedD = new Set();
+    for (const p of pairs) {
+      if (usedT.has(p.ti) || usedD.has(p.di)) continue;
+      usedT.add(p.ti); usedD.add(p.di);
+      const t = this.tracks[p.ti], d = dets[p.di];
+      if (t.lost === 0) { t.vx = 0.5*t.vx + 0.5*(d.f.cx - t.cx); t.vy = 0.5*t.vy + 0.5*(d.f.cy - t.cy); }
+      else { t.vx = 0; t.vy = 0; }
+      t.cx = d.f.cx; t.cy = d.f.cy; t.size = 0.7*t.size + 0.3*d.f.size;
+      t.lm = d.lm; t.world = d.world; t.lost = 0; t.age++;
+    }
+    this.tracks.forEach((t,ti) => { if (!usedT.has(ti)) { t.lost++; t.cx = t.px; t.cy = t.py; t.vx *= 0.85; t.vy *= 0.85; } });
+    dets.forEach((d,di) => {
+      if (usedD.has(di)) return;
+      this.tracks.push({ id:this.freeId(), lm:d.lm, world:d.world, cx:d.f.cx, cy:d.f.cy, vx:0, vy:0, size:d.f.size, lost:0, age:1 });
+    });
+    this.tracks = this.tracks.filter(t => t.lost <= this.maxLost);
+    return this.tracks.filter(t => t.lost === 0).sort((a,b) => a.id - b.id).map(t => ({ id:t.id, lm:t.lm, world:t.world }));
+  }
+  freeId() { const used = new Set(this.tracks.map(t => t.id)); let id = 1; while (used.has(id)) id++; return id; }
+  reset() { this.tracks = []; }
+}
+const tracker = new PersonTracker();
+
+/* ══════════════════════════════════════════════════════
+   MOTOR YOLO-pose (até 20 pessoas)
+   O MediaPipe Pose Landmarker é um modelo de UMA pessoa que
+   o Google estende repetindo o detector; ele suprime pessoas
+   próximas (issue #4681) e não passa de poucas pessoas
+   (issue #5842). O YOLOv8-pose é de estágio único: detecta
+   todas as pessoas do quadro de uma vez, com custo quase
+   constante, e não sofre essa supressão. Roda no navegador
+   via ONNX Runtime Web (WebGPU quando disponível, senão CPU).
+   ══════════════════════════════════════════════════════ */
+let engine = 'mediapipe';                 // 'mediapipe' | 'yolo'
+const MP_MAX_PEOPLE = 6, YOLO_MAX_PEOPLE = 20;
+const YOLO_MODELS = { n: 'models/yolov8n-pose.onnx', s: 'models/yolov8s-pose.onnx' };
+const ORT_CDN = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.29.0/dist/';
+// COCO (17 pontos do YOLO) → índices do BlazePose (33 pontos)
+const COCO2BP = [0, 2, 5, 7, 8, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28];
+let yoloQuality = 'n', yoloSizePref = 0;
+const yolo = { worker:null, session:false, size:640, backend:'', loading:false, lastMs:0, pending:null, timer:null };
+
+function setYoloStatus(t) { const el = document.getElementById('yoloStatus'); if (el) el.textContent = t; }
+
+/* A inferência roda em um Web Worker: na CPU cada quadro leva
+   150–600 ms e, se rodasse na thread principal, congelaria a
+   interface (vídeo, botões e gravação). No worker, a página
+   continua fluida e só recebe os resultados prontos. */
+const YOLO_WORKER_SRC = `
+const COCO2BP = ${JSON.stringify(COCO2BP)};
+let session = null, inName = '', outName = '', cv = null, ctx = null;
+function iou(a, b) {
+  const ix = Math.max(0, Math.min(a.x2,b.x2) - Math.max(a.x1,b.x1));
+  const iy = Math.max(0, Math.min(a.y2,b.y2) - Math.max(a.y1,b.y1));
+  const inter = ix*iy, ua = (a.x2-a.x1)*(a.y2-a.y1) + (b.x2-b.x1)*(b.y2-b.y1) - inter;
+  return ua > 0 ? inter/ua : 0;
+}
+/* Decodifica a saída [1, 56, N] do YOLOv8-pose:
+   4 (caixa cx,cy,w,h) + 1 (confiança) + 17×3 (x, y, conf do ponto). */
+function decode(d, N, scale, padX, padY, vw, vh, maxPeople) {
+  const cands = [];
+  for (let i = 0; i < N; i++) {
+    const sc = d[4*N + i]; if (sc < 0.35) continue;
+    const cx = d[i], cy = d[N+i], w = d[2*N+i], h = d[3*N+i];
+    cands.push({ sc, x1:cx-w/2, y1:cy-h/2, x2:cx+w/2, y2:cy+h/2, i });
+  }
+  cands.sort((a,b) => b.sc - a.sc);
+  const keep = [];
+  for (const c of cands) {
+    if (keep.length >= maxPeople) break;
+    if (keep.every(k => iou(c,k) <= 0.5)) keep.push(c);
+  }
+  return keep.map(k => {
+    const lm = Array.from({ length: 33 }, () => ({ x:0, y:0, z:0, visibility:0 }));
+    for (let j = 0; j < 17; j++) {
+      const px = d[(5+3*j)*N + k.i], py = d[(6+3*j)*N + k.i], pv = d[(7+3*j)*N + k.i];
+      lm[COCO2BP[j]] = { x:((px-padX)/scale)/vw, y:((py-padY)/scale)/vh, z:0, visibility:pv };
+    }
+    // olhos/orelhas internos e externos recebem o mesmo ponto (só para desenho)
+    lm[1] = {...lm[2]}; lm[3] = {...lm[2]}; lm[4] = {...lm[5]}; lm[6] = {...lm[5]};
+    return lm;
+  });
+}
+self.onmessage = async e => {
+  const m = e.data;
+  if (m.type === 'init') {
+    try {
+      importScripts(m.ortBase + 'ort.webgpu.min.js');
+      ort.env.wasm.wasmPaths = m.ortBase;
+      ort.env.wasm.numThreads = m.threads;
+      if (session) { try { await session.release(); } catch(_) {} session = null; }
+      let backend = '';
+      if (self.navigator && self.navigator.gpu) {
+        try { session = await ort.InferenceSession.create(m.modelUrl, { executionProviders:['webgpu'], graphOptimizationLevel:'all' }); backend = 'WebGPU'; }
+        catch(err) { console.warn('WebGPU indisponível no worker, usando CPU:', err); }
+      }
+      if (!session) { session = await ort.InferenceSession.create(m.modelUrl, { executionProviders:['wasm'], graphOptimizationLevel:'all' }); backend = 'CPU (WASM)'; }
+      inName = session.inputNames[0]; outName = session.outputNames[0];
+      postMessage({ type:'ready', backend });
+    } catch(err) { postMessage({ type:'error', message: String(err && err.message || err) }); }
+    return;
+  }
+  if (m.type === 'detect') {
+    const bmp = m.bmp, S = m.size, vw = bmp.width, vh = bmp.height;
+    try {
+      if (!session) throw new Error('sessão não iniciada');
+      if (!cv || cv.width !== S) { cv = new OffscreenCanvas(S, S); ctx = cv.getContext('2d', { willReadFrequently:true }); }
+      const scale = Math.min(S/vw, S/vh), nw = Math.round(vw*scale), nh = Math.round(vh*scale);
+      const padX = Math.floor((S-nw)/2), padY = Math.floor((S-nh)/2);
+      ctx.fillStyle = '#727272'; ctx.fillRect(0, 0, S, S);
+      ctx.drawImage(bmp, 0, 0, vw, vh, padX, padY, nw, nh);
+      const { data } = ctx.getImageData(0, 0, S, S);
+      const area = S*S, input = new Float32Array(3*area);
+      for (let i = 0, j = 0; i < area; i++, j += 4) { input[i] = data[j]/255; input[area+i] = data[j+1]/255; input[2*area+i] = data[j+2]/255; }
+      const t0 = performance.now();
+      const out = await session.run({ [inName]: new ort.Tensor('float32', input, [1, 3, S, S]) });
+      const ms = performance.now() - t0;
+      const o = out[outName];
+      postMessage({ type:'result', id:m.id, persons: decode(o.data, o.dims[2], scale, padX, padY, vw, vh, m.maxPeople), ms });
+    } catch(err) {
+      postMessage({ type:'result', id:m.id, persons: [], ms: 0, error: String(err && err.message || err) });
+    } finally { try { bmp.close(); } catch(_) {} }
+  }
+};`;
+
+function ensureYoloWorker() {
+  if (yolo.worker) return yolo.worker;
+  const w = new Worker(URL.createObjectURL(new Blob([YOLO_WORKER_SRC], { type: 'text/javascript' })));
+  w.onmessage = e => {
+    const m = e.data;
+    if (m.type === 'ready') { yolo.session = true; yolo.backend = m.backend; yolo._readyResolve && yolo._readyResolve(); }
+    else if (m.type === 'error') { yolo.session = false; yolo._readyReject && yolo._readyReject(new Error(m.message)); }
+    else if (m.type === 'result') {
+      if (m.error) console.warn('YOLO worker:', m.error);
+      yolo.lastMs = m.ms;
+      const cb = yolo.pending; yolo.pending = null;
+      if (cb) cb(m.persons);
+    }
+  };
+  w.onerror = e => { console.error('Erro no worker YOLO:', e.message); yolo._readyReject && yolo._readyReject(new Error(e.message)); };
+  yolo.worker = w;
+  return w;
+}
+
+async function initYolo() {
+  if (yolo.loading) return;
+  yolo.loading = true;
+  yolo.session = false;
+  setYoloStatus('Carregando motor YOLO...');
+  statusLabel.textContent = 'Carregando YOLO-pose...';
+  try {
+    const w = ensureYoloWorker();
+    const ready = new Promise((res, rej) => { yolo._readyResolve = res; yolo._readyReject = rej; });
+    w.postMessage({
+      type: 'init',
+      ortBase: window.MOCAP_ORT_BASE || ORT_CDN,
+      modelUrl: new URL(YOLO_MODELS[yoloQuality], location.href).href,
+      threads: self.crossOriginIsolated ? Math.min(4, navigator.hardwareConcurrency || 2) : 1
+    });
+    await ready;
+    yolo.size = yoloSizePref || (yolo.backend === 'WebGPU' ? 640 : 416);
+    setYoloStatus(`YOLOv8-pose ${yoloQuality === 'n' ? 'nano' : 'small'} · ${yolo.backend} · ${yolo.size} px`);
+    statusLabel.textContent = cameraRunning ? 'Câmera ativa' : 'YOLO pronto';
+    lastVideoTime = -1;
+  } catch(e) {
+    setYoloStatus('Erro ao carregar o YOLO: ' + e.message);
+    statusLabel.textContent = 'Erro no motor YOLO';
+    console.error(e);
+  }
+  yolo.loading = false;
+  updateEngineFooter();
+}
+
+/* Envia o quadro atual ao worker e espera o resultado (com um
+   limite de segurança para o loop nunca ficar preso). */
+async function yoloDetect(video) {
+  if (!yolo.session || yolo.pending) return null;
+  const bmp = await createImageBitmap(video);
+  return new Promise(resolve => {
+    yolo.pending = resolve;
+    clearTimeout(yolo.timer);
+    yolo.timer = setTimeout(() => { if (yolo.pending === resolve) { yolo.pending = null; console.warn('YOLO: tempo esgotado no quadro'); resolve([]); } }, 15000);
+    yolo.worker.postMessage({ type: 'detect', id: Date.now(), bmp, size: yolo.size, maxPeople: numPeople }, [bmp]);
+  });
+}
+
+function updateEngineFooter() {
+  const el = document.getElementById('modelStatus');
+  if (!el) return;
+  if (engine === 'yolo') el.textContent = yolo.session ? `YOLOv8-pose (${yolo.backend}) · até ${YOLO_MAX_PEOPLE} pessoas` : 'YOLO carregando...';
+  else el.textContent = faceLandmarker ? 'Pose + Face prontos (multi-pessoa)' : 'Pose ativo (sem Face Landmarker)';
+}
+
+async function onEngineChange(v) {
+  engine = v;
+  tracker.reset();
+  lastVideoTime = -1;
+  document.getElementById('qualityMp').style.display  = v === 'mediapipe' ? 'block' : 'none';
+  document.getElementById('qualityYolo').style.display = v === 'yolo' ? 'block' : 'none';
+  const slider = document.getElementById('numPeopleR');
+  if (v === 'mediapipe' && numPeople > MP_MAX_PEOPLE) { slider.value = MP_MAX_PEOPLE; await onNumPeopleChange(MP_MAX_PEOPLE); }
+  if (v === 'yolo' && !yolo.session) await initYolo();
+  updateEngineFooter();
+}
+async function onYoloQualityChange(q) { yoloQuality = q; if (engine === 'yolo') await initYolo(); }
+function onYoloSizeChange(s) {
+  yoloSizePref = s;
+  if (yolo.session) { yolo.size = s || (yolo.backend === 'WebGPU' ? 640 : 416); setYoloStatus(`YOLOv8-pose ${yoloQuality === 'n' ? 'nano' : 'small'} · ${yolo.backend} · ${yolo.size} px`); }
+}
+
+/* ── Grade de calibração (marcação do chão com fita) ──
+   Mostra o limite real da imagem da câmera (amarelo), a
+   zona segura onde o corpo inteiro fica dentro do quadro
+   (verde) e uma grade de terços (A/B/C × 1/2/3) que serve
+   de referência para colar as fitas no piso. */
+function drawGrid() {
+  const g = document.getElementById('gridCanvas');
+  if (!showGrid) { g.style.display = 'none'; return; }
+  g.style.display = 'block';
+  const rect = containRect(livePane, videoEl.videoWidth || 16, videoEl.videoHeight || 9);
+  if (g.width !== rect.dispW || g.height !== rect.dispH) { g.width = rect.dispW; g.height = rect.dispH; }
+  const c = g.getContext('2d');
+  c.clearRect(0, 0, g.width, g.height);
+  const { ox, oy, w, h } = rect;
+  // limite da câmera
+  c.setLineDash([]); c.strokeStyle = 'rgba(255,201,71,0.95)'; c.lineWidth = 3;
+  c.strokeRect(ox+1.5, oy+1.5, w-3, h-3);
+  // terços
+  c.setLineDash([8,8]); c.strokeStyle = 'rgba(255,255,255,0.45)'; c.lineWidth = 1.5;
+  for (let i = 1; i < 3; i++) {
+    c.beginPath(); c.moveTo(ox + w*i/3, oy); c.lineTo(ox + w*i/3, oy+h); c.stroke();
+    c.beginPath(); c.moveTo(ox, oy + h*i/3); c.lineTo(ox+w, oy + h*i/3); c.stroke();
+  }
+  // zona segura
+  const mx = w*0.10, my = h*0.06;
+  c.setLineDash([]); c.strokeStyle = 'rgba(0,229,160,0.95)'; c.lineWidth = 3;
+  c.strokeRect(ox+mx, oy+my, w-2*mx, h-2*my);
+  // rótulos: a tela é espelhada, então a coluna A (esquerda vista da
+  // câmera) aparece à DIREITA; a linha 1 (frente, perto da câmera) é a
+  // faixa de BAIXO da imagem, onde ficam os pés de quem está perto.
+  c.font = '700 13px monospace';
+  const cols = ['C','B','A'], rows = ['3','2','1'];
+  for (let i = 0; i < 3; i++) {
+    const x = ox + w*(i+0.5)/3;
+    c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillRect(x-12, oy+h*0.06+6, 24, 20);
+    c.fillStyle = '#fff'; c.fillText(cols[i], x-4, oy+h*0.06+21);
+    const y = oy + h*(i+0.5)/3;
+    c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillRect(ox+w*0.10+6, y-10, 24, 20);
+    c.fillStyle = '#fff'; c.fillText(rows[i], ox+w*0.10+14, y+5);
+  }
+  c.font = '700 11px monospace';
+  c.fillStyle = 'rgba(255,201,71,0.95)'; c.fillText('LIMITE DA CÂMERA', ox+8, oy+16);
+  c.fillStyle = 'rgba(0,229,160,0.95)'; c.fillText('ZONA SEGURA — cole a fita no chão sobre esta linha', ox+mx+8, oy+h-my-8);
+}
+window.addEventListener('resize', () => { if (showGrid) drawGrid(); });
+document.addEventListener('fullscreenchange', () => { setTimeout(() => { if (showGrid) drawGrid(); }, 200); });
+
+async function processFrame() {
+  if (detecting || window.__mocapPause) return;
   detecting = true;
   try {
     const ts = performance.now();
     // Câmera ao vivo
-    if (cameraRunning && poseLandmarker && videoEl.readyState >= 2 && videoEl.currentTime !== lastVideoTime) {
-      lastVideoTime = videoEl.currentTime;
-      frameIdx++;
-      const poseResult = poseLandmarker.detectForVideo(videoEl, ts);
-      /* Rosto processado a cada 2 quadros: corta o custo pela metade
-         sem diferença visual perceptível (expressões mudam devagar). */
-      if (faceLandmarker && showFace && frameIdx % 2 === 0) {
-        const faceResult = faceLandmarker.detectForVideo(videoEl, ts);
-        lastFaces = faceResult.faceLandmarks || [];
+    if (cameraRunning && videoEl.readyState >= 2 && videoEl.currentTime !== lastVideoTime) {
+      let persons = null, world = [];
+      if (engine === 'yolo') {
+        if (yolo.session) { lastVideoTime = videoEl.currentTime; frameIdx++; persons = await yoloDetect(videoEl); }
+      } else if (poseLandmarker) {
+        lastVideoTime = videoEl.currentTime; frameIdx++;
+        const r = poseLandmarker.detectForVideo(videoEl, ts);
+        persons = r.landmarks || []; world = r.worldLandmarks || [];
       }
-      renderResults(poseResult.landmarks || [], poseResult.worldLandmarks || []);
+      if (persons) {
+        /* Rosto processado a cada 2 quadros: corta o custo pela metade
+           sem diferença visual perceptível (expressões mudam devagar). */
+        if (faceLandmarker && showFace && frameIdx % 2 === 0) {
+          const faceResult = faceLandmarker.detectForVideo(videoEl, ts);
+          lastFaces = faceResult.faceLandmarks || [];
+        }
+        renderResults(tracker.update(persons, world));
+      }
     }
     // Vídeo de referência (modo espelho: arquivo ou aba do YouTube)
     if (refActive && refLandmarker && refVideo.readyState >= 2 && !refVideo.paused && refVideo.currentTime !== lastRefTime) {
@@ -1035,7 +1375,9 @@ function processFrame() {
   detecting = false;
 }
 
-function renderResults(persons, worldPersons) {
+/* tracked = [{ id, lm, world }] — id é a identidade estável (P1, P2...) */
+function renderResults(tracked) {
+  const persons = tracked.map(t => t.lm);
   const rect = containRect(livePane, videoEl.videoWidth, videoEl.videoHeight);
   /* Redimensionar canvas é caro (realoca e limpa o buffer):
      só fazemos quando o tamanho realmente mudou. */
@@ -1059,8 +1401,8 @@ function renderResults(persons, worldPersons) {
   if (persons.length > 0) {
     let confSum = 0, confN = 0;
 
-    persons.forEach((lm, pi) => {
-      const color = PERSON_COLORS[pi % PERSON_COLORS.length];
+    tracked.forEach(({ id, lm }) => {
+      const color = PERSON_COLORS[(id-1) % PERSON_COLORS.length];
       ctx.save();
       ctx.globalAlpha = window.overlayAlpha;
 
@@ -1095,7 +1437,7 @@ function renderResults(persons, worldPersons) {
       if (nose && (nose.visibility??1) > 0.3) {
         const x = toX(nose.x), y = toY(nose.y) - 26;
         ctx.font = '700 12px monospace';
-        const label = 'P' + (pi+1);
+        const label = 'P' + id;
         const tw = ctx.measureText(label).width;
         ctx.fillStyle = 'rgba(0,0,0,0.65)';
         if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x-tw/2-6, y-12, tw+12, 18, 5); ctx.fill(); }
@@ -1112,7 +1454,9 @@ function renderResults(persons, worldPersons) {
       lastFaces.forEach(f => drawFaceMesh(f, toX, toY));
     }
 
-    const watched = persons[Math.min(watchedPerson, persons.length-1)] || [];
+    // Painéis seguem a IDENTIDADE escolhida (Pessoa N = P N), não a posição no array
+    const watchedT = tracked.find(t => t.id === watchedPerson + 1);
+    const watched = watchedT ? watchedT.lm : [];
 
     // Estas contas são baratas e precisam rodar a cada quadro:
     updateReps(watched);
@@ -1134,10 +1478,12 @@ function renderResults(persons, worldPersons) {
 
     if (isRecording) {
       maxPersonsSeen = Math.max(maxPersonsSeen, persons.length);
+      const rnd = lm => lm.map(p=>({x:+p.x.toFixed(4),y:+p.y.toFixed(4),z:+p.z.toFixed(4),v:+((p.visibility??0)).toFixed(3)}));
       recordedFrames.push({
         t: Date.now()-recStartTime,
-        persons: persons.map(lm => lm.map(p=>({x:+p.x.toFixed(4),y:+p.y.toFixed(4),z:+p.z.toFixed(4),v:+((p.visibility??0)).toFixed(3)}))),
-        world: (worldPersons||[]).map(lm => lm.map(p=>({x:+p.x.toFixed(4),y:+p.y.toFixed(4),z:+p.z.toFixed(4),v:+((p.visibility??0)).toFixed(3)})))
+        ids: tracked.map(t => t.id),                       // identidade estável de cada pessoa
+        persons: tracked.map(t => rnd(t.lm)),
+        world: tracked.map(t => t.world ? rnd(t.world) : [])
       });
     }
   } else if (uiDue) {
@@ -1170,10 +1516,18 @@ async function onNumPeopleChange(n) {
   numPeople = n;
   document.getElementById('numPeopleV').textContent = n;
   refreshPersonSel();
+  // Acima de 6 pessoas o MediaPipe não dá conta (limitação do modelo):
+  // troca automaticamente para o motor YOLO-pose.
+  if (n > MP_MAX_PEOPLE && engine === 'mediapipe') {
+    document.getElementById('engineSel').value = 'yolo';
+    await onEngineChange('yolo');
+    statusLabel.textContent = 'Acima de 6 pessoas: motor YOLO-pose ativado';
+  }
   try {
-    if (poseLandmarker) await poseLandmarker.setOptions({ numPoses: n });
-    if (faceLandmarker) await faceLandmarker.setOptions({ numFaces: n });
-    if (refLandmarker)  await refLandmarker.setOptions({ numPoses: n });
+    const mp = Math.min(n, MP_MAX_PEOPLE);
+    if (poseLandmarker) await poseLandmarker.setOptions({ numPoses: mp });
+    if (faceLandmarker) await faceLandmarker.setOptions({ numFaces: mp });
+    if (refLandmarker)  await refLandmarker.setOptions({ numPoses: mp });
   } catch(e) { console.error('Erro ao ajustar nº de pessoas:', e); }
 }
 
@@ -1190,7 +1544,7 @@ async function onQualityChange(q) {
     poseLandmarker = await createLandmarker(PoseLandmarker, fileset, {
       baseOptions: { modelAssetPath: POSE_MODELS[modelQuality] },
       runningMode: 'VIDEO',
-      numPoses: numPeople,
+      numPoses: Math.min(numPeople, MP_MAX_PEOPLE),
       minPoseDetectionConfidence: 0.5,
       minPosePresenceConfidence: 0.5,
       minTrackingConfidence: 0.5
@@ -1277,6 +1631,7 @@ async function initModels() {
       minTrackingConfidence: 0.5
     });
     POSE_CONNECTIONS = (PoseLandmarker.POSE_CONNECTIONS || []).map(c => [c.start, c.end]);
+    if (!POSE_CONNECTIONS.length) POSE_CONNECTIONS = POSE_CONNECTIONS_FALLBACK;
     document.getElementById('step1icon').textContent='✅';
     document.getElementById('step1txt').textContent='Pose Landmarker — pronto (multi-pessoa)';
     await initFaceLandmarker();
@@ -1339,18 +1694,27 @@ btnStart.addEventListener('click', async()=>{
   const stream=await startStream(sel.value||null);
   if(!stream) return;
   if(videoEl.srcObject) videoEl.srcObject.getTracks().forEach(t=>t.stop());
-  videoEl.srcObject=stream;
-  videoEl.style.display='block';
-  placeholder.style.display='none';
-  await refreshCamList();
-  videoEl.onloadedmetadata=()=>{
+  /* O manipulador é registrado ANTES de atribuir o stream: em câmeras
+     rápidas o 'loadedmetadata' dispara antes do fim do await abaixo e,
+     se fosse registrado depois, seria perdido (botões nunca habilitavam). */
+  let started=false;
+  const onReady=()=>{
+    if(started) return; started=true;
     videoEl.play();
+    tracker.reset();
+    drawGrid();
     startProcessing();
     statusDot.className='status-dot live';
     statusLabel.textContent='Câmera ativa';
     btnStart.disabled=true; btnStop.disabled=false; btnRec.disabled=false;
     document.getElementById('btnToggleVideo').style.display='block';
   };
+  videoEl.onloadedmetadata=onReady;
+  videoEl.srcObject=stream;
+  videoEl.style.display='block';
+  placeholder.style.display='none';
+  await refreshCamList();
+  if(videoEl.readyState>=1) onReady();
 });
 
 document.getElementById('camSelect').addEventListener('change', async()=>{
@@ -1360,12 +1724,13 @@ document.getElementById('camSelect').addEventListener('change', async()=>{
   const stream=await startStream(deviceId);
   if(!stream) return;
   if(videoEl.srcObject) videoEl.srcObject.getTracks().forEach(t=>t.stop());
+  videoEl.onloadedmetadata=()=>{ videoEl.play(); lastVideoTime=-1; tracker.reset(); statusLabel.textContent='Câmera trocada'; };
   videoEl.srcObject=stream;
-  videoEl.onloadedmetadata=()=>{ videoEl.play(); lastVideoTime=-1; statusLabel.textContent='Câmera trocada'; };
 });
 
 btnStop.addEventListener('click',()=>{
   cameraRunning=false;
+  tracker.reset();
   if(isRecording) toggleRec();
   stopLoopsIfIdle();
   if(videoEl.srcObject){videoEl.srcObject.getTracks().forEach(t=>t.stop());videoEl.srcObject=null;}
@@ -1839,7 +2204,8 @@ function drawPbFrame() {
   const toX = nx => (1 - nx) * W;   // mesmo espelho da tela ao vivo
   const toY = ny => ny * H;
   f.persons.forEach((lm, pi) => {
-    const color = PERSON_COLORS[pi % PERSON_COLORS.length];
+    const pid = (f.ids && f.ids[pi]) || (pi+1);
+    const color = PERSON_COLORS[(pid-1) % PERSON_COLORS.length];
     POSE_CONNECTIONS.forEach(([a,b])=>{
       const pa=lm[a],pb=lm[b]; if(!pa||!pb) return;
       if((pa.v??1)<0.3||(pb.v??1)<0.3) return;
@@ -1854,7 +2220,7 @@ function drawPbFrame() {
     const nose=lm[0];
     if(nose&&(nose.v??1)>0.3){
       pbCtx.font='700 12px monospace'; pbCtx.fillStyle=color;
-      pbCtx.fillText('P'+(pi+1), toX(nose.x)-8, toY(nose.y)-16);
+      pbCtx.fillText('P'+pid, toX(nose.x)-8, toY(nose.y)-16);
     }
   });
   document.getElementById('pbTime').textContent = `${fmtTimer(f.t)} · q ${pbIdx+1}/${recordedFrames.length}`;
@@ -1885,7 +2251,8 @@ function exportCSV() {
   const rows=[];
   recordedFrames.forEach((f,fi)=>{
     f.persons.forEach((lm,pi)=>{
-      rows.push([fi,f.t,pi+1,...lm.flatMap(p=>[p.x,p.y,p.z,p.v])].join(','));
+      const pid = (f.ids && f.ids[pi]) || (pi+1);
+      rows.push([fi,f.t,pid,...lm.flatMap(p=>[p.x,p.y,p.z,p.v])].join(','));
     });
   });
   download('mocap_data.csv',[headers.join(','),...rows].join('\n'),'text/csv');
@@ -1893,7 +2260,8 @@ function exportCSV() {
 
 function exportJSON() {
   if(!recordedFrames.length) return;
-  const data={metadata:{source:'MoCapWeb CECAPE',model:'MediaPipe Pose Landmarker (multi-pessoa)',quality:modelQuality,maxPeople:numPeople,keypoints:KP_NAMES,frames:recordedFrames.length,coords:{persons:'normalizado [0..1] da imagem',world:'metros, origem no centro dos quadris'}},frames:recordedFrames};
+  const model = engine==='yolo' ? `YOLOv8-pose ${yoloQuality} (${yolo.backend})` : 'MediaPipe Pose Landmarker (multi-pessoa)';
+  const data={metadata:{source:'MoCapWeb CECAPE',engine,model,quality:engine==='yolo'?yoloQuality:modelQuality,maxPeople:numPeople,keypoints:KP_NAMES,frames:recordedFrames.length,coords:{persons:'normalizado [0..1] da imagem',world:'metros, origem no centro dos quadris (vazio no motor YOLO)'},ids:'frames[].ids[i] é a identidade estável (P1, P2...) de frames[].persons[i]'},frames:recordedFrames};
   download('mocap_data.json',JSON.stringify(data,null,2),'application/json');
 }
 
@@ -1965,10 +2333,15 @@ function quatToEulerZXY(q){
 
 function exportBVH() {
   if(!recordedFrames.length) return;
-  // frames que têm world landmarks da pessoa observada
-  const frames = recordedFrames.filter(f => f.world && f.world.length > 0);
-  if(!frames.length) return;
-  const pIdx = f => Math.min(watchedPerson, f.world.length - 1);
+  // frames que têm world landmarks (3D) da pessoa observada — só o motor MediaPipe produz
+  const wantId = watchedPerson + 1;
+  const pIdx = f => { const i = f.ids ? f.ids.indexOf(wantId) : -1; return i >= 0 ? i : Math.min(watchedPerson, f.world.length - 1); };
+  const frames = recordedFrames.filter(f => f.world && f.world.length > 0 && f.world[pIdx(f)] && f.world[pIdx(f)].length === 33);
+  if(!frames.length) {
+    const st = document.getElementById('mp4Status');
+    st.style.display='block'; st.textContent='BVH indisponível: esta captura não tem dados 3D (o motor YOLO-pose fornece só 2D). Grave com o motor MediaPipe para exportar BVH.';
+    return;
+  }
   // MediaPipe world: x = esquerda da pessoa, y para BAIXO, z para trás.
   // BVH/Blender: y para CIMA, z para frente → inverte y e z. Escala m→cm.
   const cv = p => ({ x: p.x*100, y: -p.y*100, z: -p.z*100 });
@@ -2264,6 +2637,9 @@ window.exportBVH = exportBVH;
 window.skipFaceMesh = skipFaceMesh;
 window.onNumPeopleChange = onNumPeopleChange;
 window.onQualityChange = onQualityChange;
+window.onEngineChange = onEngineChange;
+window.onYoloQualityChange = onYoloQualityChange;
+window.onYoloSizeChange = onYoloSizeChange;
 window.closeRefMode = closeRefMode;
 window.startRefTabCapture = startRefTabCapture;
 window.setExercise = setExercise;
@@ -2275,6 +2651,10 @@ window.pbSeek = pbSeek;
 window.openSaveModal = openSaveModal;
 window.closeSaveModal = closeSaveModal;
 window.saveToServer = saveToServer;
+
+// Ganchos de diagnóstico (usados em testes automatizados; sem efeito no uso normal)
+window.__mocapDebug = { get tracks() { return tracker.tracks; }, get frames() { return recordedFrames; }, get engine() { return engine; }, get yolo() { return { backend: yolo.backend, size: yolo.size, ready: !!yolo.session, lastMs: yolo.lastMs || 0 }; },
+  detectOnce: () => yoloDetect(videoEl), get yoloObj() { return yolo; } };
 
 initServerSession();
 refreshPersonSel();
