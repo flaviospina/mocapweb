@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+ <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; line-height: 1.6; background-color: #28b1d4; margin: 0; padding: 20px; }
+    .container { width: 100%; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden; background-color: #ffffff; }
+
+    .header { background-color: #ffffff; padding: 25px; text-align: center; border-bottom: 4px solid #00accf; }
+    .header-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    .header-table td { width: 50%; text-align: center; vertical-align: middle; padding: 10px; }
+
+    .header-table img { width: 100%; max-width: 180px; height: auto; display: inline-block; }
+
+    .content { padding: 35px; background-color: #ffffff; }
+    .card { background: #f8f9fa; padding: 25px; border-radius: 8px; border-left: 5px solid #00accf; margin: 20px 0; }
+
+    .info-row { margin-bottom: 12px; font-size: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+    .info-label { font-weight: bold; color: #00accf; text-transform: uppercase; font-size: 12px; display: block; }
+    .info-value { color: #333; font-size: 16px; }
+
+    h2 { color: #00accf; margin-top: 0; font-size: 22px; text-align: center; }
+    a { color: #00accf; }
+
+    .footer { background-color: #00accf; color: #ffffff; text-align: center; padding: 20px; font-size: 13px; font-weight: 300; }
+
+    /* Aviso de mensagem automática */
+    .no-reply {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: #fff3cd;
+      border: 1px solid #ffeeba;
+      border-radius: 8px;
+      color: #856404;
+      font-size: 13px;
+      text-align: center;
+    }
+
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <table class="header-table">
+        <tr>
+          <td><img src="https://cecapescs.com.br/logos/logo-seeduc.png" alt="SEEDUC"></td>
+          <td><img src="https://cecapescs.com.br/logos/logo-cecape.png" alt="CECAPE"></td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="content">
+      <h2>Olá, {{TRATAMENTO}} <strong>{{NOME}}</strong>!</h2>
+      <p>
+        Informamos que foi criada uma <strong>conta de acesso</strong> para você no sistema <strong>MocapWeb</strong> do CECAPE.
+        <br>
+        Você já está {{CADASTRADO}} e pode acessar o sistema com os dados abaixo:
+      </p>
+
+      <div class="card">
+        <p><span class="info-label">Sistema:</span> MocapWeb • Captura de Movimentos</p>
+        <p><span class="info-label">Endereço:</span> <a href="https://cecapescs.com.br/mocapweb/">https://cecapescs.com.br/mocapweb/</a></p>
+        <p><span class="info-label">Usuário:</span> {{EMAIL}}</p>
+        <p><span class="info-label">Senha provisória:</span> {{SENHA}}</p>
+        <p><span class="info-label">Unidade:</span> {{INSTITUICAO}}</p>
+      </div>
+
+      <p>
+        <strong>O que é o MocapWeb?</strong><br>
+        É o sistema de captura de movimentos corporais e faciais do CECAPE. Funciona direto no navegador,
+        usando apenas uma webcam, sem equipamentos especiais. Rastreia até <strong>6 pessoas</strong> ao mesmo tempo
+        no modo padrão e até <strong>20 pessoas</strong> no modo ampliado, permite comparar os movimentos com um vídeo
+        de referência e exporta os dados da captura (CSV, JSON e BVH para animação 3D).
+      </p>
+
+      <p>
+        Apresentação e tutorial de uso: <a href="https://cecapescs.com.br/mocapweb/apresentacao.html">https://cecapescs.com.br/mocapweb/apresentacao.html</a>
+      </p>
+
+      <p style="margin-top: 20px;">
+        Recomendamos alterar a senha no primeiro acesso. Em caso de dúvidas, entre em contato com a equipe de TI do CECAPE.
+      </p>
+
+      <!-- Aviso de mensagem automática -->
+      <div class="no-reply">
+        ⚠️ Esta é uma mensagem automática enviada pelo sistema do CECAPE.<br>
+        Por favor, não responda este e-mail, pois esta caixa de entrada não é monitorada.
+      </div>
+
+    </div>
+
+    <div class="footer">
+      CECAPE - Centro de Capacitação de Profissionais da Educação<br>
+      Secretaria Municipal de Educação de São Caetano do Sul
+    </div>
+  </div>
+</body>
+</html>

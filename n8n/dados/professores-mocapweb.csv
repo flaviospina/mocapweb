@@ -1,0 +1,22 @@
+n;instituicao;nome;email;genero;tratamento;tem_email;senha_provisoria;observacao
+1;EMEI Telma Silvia de Aguiar Brito;Adriana Barbosa Ferreira;adriana.ferreira@scseduca.com.br;F;Professora;SIM;;
+2;NAEI;Adriana Gomes da Fonseca;adrianagomes@scseduca.com.br;F;Professora;SIM;;
+3;EMEI Pedro José Lorenzini;Ana Paula de Queiroz Cosme Francisco;;F;Professora;NÃO;;sem e-mail
+4;EMEF Prof. Décio Machado Gaia;Anna Maria Orsatti;;F;Professora;NÃO;;sem e-mail
+5;EMEF Laura Lopes;Barbara da Silva Borges;barbaraborges@scseduca.com.br;F;Professora;SIM;;
+6;EMEF Luiz Olinto Tortorello;Caio Duilio Improta;;M;Professor;NÃO;;sem e-mail
+7;EMEI Irineu da Silva;Carolina Molino Domenech Perales;;F;Professora;NÃO;;sem e-mail
+8;EMI Maria Simonetti Thomé;Daniela Mattos Tarrataca;danielatarrataca@scseduca.com.br;F;Professora;SIM;;
+9;EMEF Santina Lorenzini Auricchio;Daniele Fernando da Silva;danielesilva@scseduca.com.br;M;Professor;SIM;;CONFIRMAR sexo: 'Daniele' costuma ser feminino, mas 'Fernando' indica masculino
+10;EMI Gastão Vidigal Neto;Diyony Uiara Sampaio Marsilli;diyonymarsilli@scseduca.com.br;F;Professora;SIM;;"CONFIRMAR sexo: 'Uiara' é nome feminino; 'Diyony' é incomum"
+11;EMEF Sylvio Romero;Elio Rodrigues Junior;eliojunior@scseduca.com.br;M;Professor;SIM;;
+12;EMEF Sylvio Romero;Lucila Yashiki Capua;;F;Professora;NÃO;;sem e-mail
+13;EMEF Prof. Décio Machado Gaia;Lívia Lemes Paioli Del Valle;;F;Professora;NÃO;;sem e-mail
+14;EME Profª. Alcina Dantas Feijão;Nathan Trindade Santos;;M;Professor;NÃO;;sem e-mail
+15;EME Profª. Alcina Dantas Feijão;Rogério Ferreira Shiira;;M;Professor;NÃO;;sem e-mail
+16;EMEF Bartolomeu Bueno da Silva;Rosileide Queiroz de Oliveira;rosileideoliveira@scseduca.com.br;F;Professora;SIM;;
+17;EME Profª. Alcina Dantas Feijão;Shirley Monteiro Maciel;educacaoespecialalcina@scseduca.com.br;F;Professora;SIM;;e-mail institucional do setor (Educação Especial), não pessoal
+18;EMEI José Auricchio;Simone Mendes Maldegan;simonemaldegan@scseduca.com.br;F;Professora;SIM;;
+19;EME Profª. Alcina Dantas Feijão;Simone Tedeschi;;F;Professora;NÃO;;sem e-mail
+20;EMEI Antonio de Oliveira;Suely Machado Gallo;;F;Professora;NÃO;;sem e-mail
+21;EME Profª. Alcina Dantas Feijão;Viviane dos Santos Fiorio;;F;Professora;NÃO;;sem e-mail
