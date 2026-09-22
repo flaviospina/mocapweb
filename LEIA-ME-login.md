@@ -9,28 +9,21 @@ Reconstrução da tela de login do MocapWeb com amarração ao domínio
 | Arquivo | O que é |
 |---|---|
 | `login.php` | Tela de login completa (substitui a atual). Valida o domínio no HTML (`pattern`), no JavaScript e mostra as mensagens da API. Envia `{email, senha}` em JSON para `api/login.php` e, com sucesso, abre o destino (`?r=index.html` ou `admin.php`). |
-| `api/dominio.php` | **Novo.** Regra do domínio em um único lugar (`MOCAP_DOMINIO_EMAIL`), com a função `exigir_email_institucional()` para o servidor recusar (HTTP 422) qualquer e-mail fora do domínio antes de consultar o banco. |
+| `api/dominio.php` | **Novo.** Regra do domínio em um único lugar (`MOCAP_DOMINIO_EMAIL`), com a função `email_institucional_valido()` usada pelo servidor. |
+| `api/login.php` | Endpoint de autenticação original, com **uma verificação a mais**: e-mail fora do domínio recebe HTTP 422 antes de qualquer consulta ao banco. Todo o resto (bcrypt, bloqueio 15 min, logs, sessão, CSRF) permanece igual. |
 
 ## Onde a regra é aplicada
 
 1. **HTML**: o campo de e-mail tem `pattern` e `placeholder` do domínio; o navegador já marca em vermelho.
 2. **JavaScript** (`login.php`): antes de chamar a API, o e-mail é normalizado (minúsculas, sem espaços) e testado contra `^[a-z0-9._%+-]+@scseduca\.com\.br$`. Fora do domínio, nem chega ao servidor.
-3. **PHP** (`api/dominio.php`): a mesma regra no servidor, para o caso de alguém chamar `api/login.php` direto (sem passar pela tela).
+3. **PHP** (`api/login.php` + `api/dominio.php`): a mesma regra no servidor, para o caso de alguém chamar `api/login.php` direto (sem passar pela tela). Resposta: HTTP 422 com `{"erro":"Use seu e-mail institucional @scseduca.com.br."}`.
 
 ## Como publicar (cPanel → Gerenciador de arquivos)
 
 1. Envie `login.php` para a pasta do sistema (`public_html/mocapweb/`), substituindo o atual.
-2. Envie `api/dominio.php` para `public_html/mocapweb/api/`.
-3. Abra `api/login.php` no editor do cPanel e acrescente estas duas linhas logo
-   depois de ler o e-mail do corpo da requisição (antes de qualquer consulta ao banco):
-
-   ```php
-   require_once __DIR__ . '/dominio.php';
-   exigir_email_institucional($email); // use o nome da variável que já recebe o e-mail
-   ```
-
-   Se preferir, me envie o `api/login.php` atual e eu devolvo o arquivo completo com a
-   regra integrada, sem edição manual.
+2. Envie `api/dominio.php` (novo) e `api/login.php` (substituindo o atual) para `public_html/mocapweb/api/`.
+3. Teste: tente entrar com um e-mail `@gmail.com` (deve ser barrado na tela) e depois com um
+   e-mail `@scseduca.com.br` cadastrado.
 
 ## Comportamento da tela
 
