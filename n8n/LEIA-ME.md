@@ -12,8 +12,11 @@ mensagem automática e rodapé.
 |---|---|
 | `mocapweb-aviso-conta-acesso.json` | **Workflow principal.** Gatilho manual → nó *Code* com a lista de destinatários → 1 nó *Gmail* que envia para cada pessoa. Recomendado. |
 | `mocapweb-aviso-conta-acesso-isolado.json` | Mesmo envio no formato do `Gmails Isolado`: 10 nós *Gmail* soltos, um por pessoa, com o HTML já preenchido. Use se preferir disparar um a um. |
+| `mocapweb-retorno-formadores.json` | **Retorno aos formadores.** Envia para Débora Banheti dos Santos e Marcio Carvalho a lista de quem recebeu o e-mail de acesso (login e senha) e de quem ficou sem e-mail. Mesma estrutura do principal. |
+| `mocapweb-retorno-formadores-isolado.json` | O mesmo retorno com 2 nós *Gmail* soltos, um por formador(a), HTML já preenchido. |
 | `dados/professores-mocapweb.csv` | Lista completa das 21 pessoas (com e sem e-mail), sexo inferido, tratamento e observações. Separador `;`. |
-| `templates/mocapweb-conta-acesso.html` | Template do e-mail com marcadores `{{NOME}}`, `{{EMAIL}}` etc., para referência ou reaproveitamento. |
+| `templates/mocapweb-conta-acesso.html` | Template do e-mail aos professores com marcadores `{{NOME}}`, `{{EMAIL}}` etc., para referência ou reaproveitamento. |
+| `templates/mocapweb-retorno-formadores.html` | Template do retorno aos formadores, já com a tabela dos 10 e-mails enviados e dos 11 sem e-mail. |
 
 ## Quem recebe
 
@@ -68,6 +71,23 @@ Assunto enviado: `Aviso CECAPE • MocapWeb • Sua conta de acesso foi criada`.
   CSV, JSON e BVH.
 - Link da apresentação/tutorial (`apresentacao.html`).
 - Aviso de mensagem automática e rodapé institucional.
+
+## Retorno aos formadores
+
+Depois do disparo aos professores, importe `mocapweb-retorno-formadores.json`
+e execute. Ele envia um e-mail para cada formador(a), no mesmo template, com:
+
+- a afirmação de que todos os professores(as) relacionados receberam o e-mail de
+  acesso ao MocapWeb com login e senha;
+- a tabela dos **10 e-mails enviados** (nome, unidade, e-mail);
+- a tabela dos **11 sem e-mail** na relação, com o pedido de enviar os e-mails
+  caso queiram incluí-los.
+
+Assunto: `Aviso CECAPE • MocapWeb • Contas de acesso enviadas aos professores`.
+A lista dentro do e-mail é fixa (gerada a partir do CSV). Se a relação mudar,
+ajuste a tabela no HTML do nó Gmail ou no template.
+
+Tratamento usado: "Formadora Débora Banheti dos Santos" e "Formador Marcio Carvalho".
 
 ## Pontos verificados em 22/09/2026 que merecem atenção
 
