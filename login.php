@@ -14,8 +14,8 @@ header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: same-origin');
 header('Cache-Control: no-store, no-cache, must-revalidate');
 
-// Destino após o login: só nomes simples de arquivo da mesma pasta (ex.: index.html, admin.php).
-$destino = 'index.html';
+// Destino após o login: só nomes simples de arquivo da mesma pasta (ex.: index.php, admin.php).
+$destino = 'index.php';
 if (isset($_GET['r']) && is_string($_GET['r']) && preg_match('/^[A-Za-z0-9_\-]+\.(html|php)$/', $_GET['r'])) {
     $destino = $_GET['r'];
 }

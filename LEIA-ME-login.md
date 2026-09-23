@@ -12,6 +12,40 @@ Reconstrução da tela de login do MocapWeb com amarração ao domínio
 | `api/dominio.php` | **Novo.** Regra do domínio em um único lugar (`MOCAP_DOMINIO_EMAIL`), com a função `email_institucional_valido()` usada pelo servidor. |
 | `api/login.php` | Endpoint de autenticação original, com **uma verificação a mais**: e-mail fora do domínio recebe HTTP 422 antes de qualquer consulta ao banco. Todo o resto (bcrypt, bloqueio 15 min, logs, sessão, CSRF) permanece igual. |
 
+## Login obrigatório antes de carregar a página principal
+
+| Arquivo | O que faz |
+|---|---|
+| `index.php` | **Nova entrada do sistema.** Verifica a sessão no servidor e, sem login, redireciona (302) para `login.php?r=index.php` sem entregar nada da página principal. Logado, entrega o conteúdo do `index.html`. |
+| `.htaccess` | Define `index.php` como página inicial da pasta e faz quem pedir `index.html` diretamente ser atendido por `index.php`. Também bloqueia acesso direto a `config.php`, `db.php`, `dominio.php` e `guarda.php`. Se já existir um `.htaccess` na pasta `mocapweb/`, junte o conteúdo em vez de substituir. |
+| `index.html` | Mesma página publicada em 10/09/2026, com duas mudanças: o redirecionamento de fallback aponta para `index.php`, e o link **Admin** ao lado do nome só aparece para o perfil `admin`. |
+
+Os endereços continuam os mesmos: `https://cecapescs.com.br/mocapweb/` abre o login se não houver sessão e o sistema se houver.
+
+## Painel admin somente para o perfil `admin`
+
+| Arquivo | O que faz |
+|---|---|
+| `api/guarda.php` | **Novo.** Funções `exigir_login_pagina()`, `exigir_admin_pagina()` e `exigir_admin_api()`. Só o papel `admin` é administrador; qualquer outro papel, existente ou criado depois (professor, formador, coordenador…), recebe **403 "Acesso restrito"** com botão para voltar ao MocapWeb. |
+
+Para ativar no `admin.php`, acrescente logo após o `require` do `api/db.php`:
+
+```php
+require_once __DIR__ . '/api/guarda.php';
+$usuarioLogado = exigir_admin_pagina();
+```
+
+Nos endpoints da API que só o administrador pode usar (por exemplo criar/excluir eventos
+em `api/eventos.php`, listar/excluir capturas em `api/capturas.php`), use após o `require` do `db.php`:
+
+```php
+require_once __DIR__ . '/guarda.php';
+exigir_admin_api();
+```
+
+Se me enviar `admin.php`, `api/eventos.php`, `api/capturas.php` e `api/db.php`, devolvo os
+arquivos completos com as guardas já integradas.
+
 ## Onde a regra é aplicada
 
 1. **HTML**: o campo de e-mail tem `pattern` e `placeholder` do domínio; o navegador já marca em vermelho.
@@ -20,10 +54,15 @@ Reconstrução da tela de login do MocapWeb com amarração ao domínio
 
 ## Como publicar (cPanel → Gerenciador de arquivos)
 
-1. Envie `login.php` para a pasta do sistema (`public_html/mocapweb/`), substituindo o atual.
-2. Envie `api/dominio.php` (novo) e `api/login.php` (substituindo o atual) para `public_html/mocapweb/api/`.
-3. Teste: tente entrar com um e-mail `@gmail.com` (deve ser barrado na tela) e depois com um
-   e-mail `@scseduca.com.br` cadastrado.
+1. Na pasta do sistema (`public_html/mocapweb/`): envie `login.php`, `index.php`, `index.html` e
+   `.htaccess` (substituindo `login.php` e `index.html`; `index.php` e `.htaccess` são novos).
+2. Em `public_html/mocapweb/api/`: envie `dominio.php` e `guarda.php` (novos) e `login.php` (substituindo).
+3. Acrescente a guarda no `admin.php` (duas linhas, ver seção acima) ou me envie o arquivo.
+4. Teste sem estar logado: abrir `https://cecapescs.com.br/mocapweb/` deve ir direto para o login,
+   sem mostrar a tela escura de carregamento.
+5. Teste com e-mail `@gmail.com` (barrado na tela), depois com um `@scseduca.com.br` de perfil
+   professor: o link **Admin** não aparece e `admin.php` responde "Acesso restrito". Com perfil
+   `admin`, o painel abre normalmente.
 
 ## Comportamento da tela
 
