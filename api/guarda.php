@@ -1,24 +1,46 @@
 <?php
 // api/guarda.php
-// Guardas de acesso do MocapWeb (CECAPE).
-//   - exigir_login_pagina(): páginas HTML que exigem usuário logado (index.php).
-//   - exigir_admin_pagina(): páginas restritas ao perfil "admin" (admin.php).
-//   - exigir_admin_api():    endpoints JSON restritos ao perfil "admin".
-// Inclua depois de api/db.php (que já inicia a sessão). Se a sessão ainda não
-// estiver ativa, abre a sessão MOCAPSESS com os mesmos atributos de segurança.
+// Guardas de acesso do MocapWeb (CECAPE). Não dependem de api/db.php nem do banco:
+// leem a sessão MOCAPSESS criada pelo api/login.php.
+//   - mocap_exigir_login_pagina(): páginas HTML que exigem usuário logado (index.php).
+//   - mocap_exigir_admin_pagina(): páginas restritas ao perfil "admin" (admin.php).
+//   - mocap_exigir_admin_api():    endpoints JSON restritos ao perfil "admin".
+// Todas as funções têm prefixo "mocap_" para não colidir com as do api/db.php.
 
 declare(strict_types=1);
 
-const MOCAP_PAPEL_ADMIN = 'admin';
+const MOCAP_SESSAO_NOME  = 'MOCAPSESS';
+const MOCAP_PAPEL_ADMIN  = 'admin';
 
-function sessao_garantir(): void
+/** Cabeçalhos de segurança e sem cache para páginas protegidas. */
+function mocap_cabecalhos_protegidos(): void
+{
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+    header('X-Frame-Options: SAMEORIGIN');
+    header('X-Content-Type-Options: nosniff');
+    header('Referrer-Policy: same-origin');
+}
+
+/**
+ * Abre a sessão existente (se ainda não estiver aberta).
+ * Só chama session_start() quando o navegador já enviou o cookie MOCAPSESS:
+ * assim, um visitante anônimo nunca ganha um cookie de sessão daqui, e a
+ * sessão criada pelo api/login.php continua sendo a única.
+ * Retorna false quando não há cookie de sessão.
+ */
+function mocap_sessao_abrir(): bool
 {
     if (session_status() === PHP_SESSION_ACTIVE) {
-        return;
+        return true;
+    }
+    if (empty($_COOKIE[MOCAP_SESSAO_NOME])) {
+        return false;
     }
     $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
           || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
-    session_name('MOCAPSESS');
+    session_name(MOCAP_SESSAO_NOME);
     session_set_cookie_params([
         'lifetime' => 0,
         'path'     => '/',
@@ -26,29 +48,31 @@ function sessao_garantir(): void
         'httponly' => true,
         'samesite' => 'Lax',
     ]);
-    session_start();
+    return session_start();
 }
 
 /** Usuário logado (id, nome, email, papel) ou null. */
-function usuario_sessao(): ?array
+function mocap_usuario_sessao(): ?array
 {
-    sessao_garantir();
+    if (!mocap_sessao_abrir()) {
+        return null;
+    }
     $u = $_SESSION['usuario'] ?? null;
     return (is_array($u) && !empty($u['id'])) ? $u : null;
 }
 
-/** Somente o perfil "admin" é administrador. Qualquer outro papel, existente ou futuro, não é. */
-function usuario_eh_admin(?array $u): bool
+/** Somente o papel "admin" é administrador. Qualquer outro papel, existente ou futuro, não é. */
+function mocap_usuario_eh_admin(?array $u): bool
 {
     return $u !== null && (($u['papel'] ?? '') === MOCAP_PAPEL_ADMIN);
 }
 
-/** Página HTML: sem login, redireciona para login.php e volta ao destino depois. */
-function exigir_login_pagina(string $destino = 'index.php'): array
+/** Página HTML: sem login, redireciona para login.php (302) e volta ao destino depois. */
+function mocap_exigir_login_pagina(string $destino = 'index.php'): array
 {
-    $u = usuario_sessao();
+    $u = mocap_usuario_sessao();
     if ($u === null) {
-        header('Cache-Control: no-store, no-cache, must-revalidate');
+        mocap_cabecalhos_protegidos();
         header('Location: login.php?r=' . rawurlencode($destino), true, 302);
         exit;
     }
@@ -56,15 +80,13 @@ function exigir_login_pagina(string $destino = 'index.php'): array
 }
 
 /** Página HTML restrita ao administrador: sem login vai ao login; logado sem ser admin recebe 403. */
-function exigir_admin_pagina(): array
+function mocap_exigir_admin_pagina(): array
 {
-    $u = exigir_login_pagina('admin.php');
-    if (!usuario_eh_admin($u)) {
+    $u = mocap_exigir_login_pagina('admin.php');
+    if (!mocap_usuario_eh_admin($u)) {
         http_response_code(403);
+        mocap_cabecalhos_protegidos();
         header('Content-Type: text/html; charset=utf-8');
-        header('Cache-Control: no-store, no-cache, must-revalidate');
-        header('X-Frame-Options: SAMEORIGIN');
-        header('X-Content-Type-Options: nosniff');
         $nome = htmlspecialchars((string)($u['nome'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
         echo <<<HTML
 <!DOCTYPE html>
@@ -100,16 +122,16 @@ HTML;
 }
 
 /** Endpoint JSON restrito ao administrador: 401 sem login, 403 sem ser admin. */
-function exigir_admin_api(): array
+function mocap_exigir_admin_api(): array
 {
-    $u = usuario_sessao();
+    $u = mocap_usuario_sessao();
     if ($u === null) {
         http_response_code(401);
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode(['erro' => 'Não autenticado. Faça login.'], JSON_UNESCAPED_UNICODE);
         exit;
     }
-    if (!usuario_eh_admin($u)) {
+    if (!mocap_usuario_eh_admin($u)) {
         http_response_code(403);
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode(['erro' => 'Acesso restrito ao administrador.'], JSON_UNESCAPED_UNICODE);

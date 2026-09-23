@@ -1,16 +1,22 @@
 # .htaccess da pasta mocapweb/
-# Entrada do sistema passa por index.php, que exige login no servidor
-# antes de entregar o index.html.
+# A entrada do sistema é o index.php, que exige login no servidor antes de
+# entregar o MocapWeb. O index.html é só um redirecionamento para o index.php.
 
+Options -Indexes
 DirectoryIndex index.php index.html
 
 <IfModule mod_rewrite.c>
   RewriteEngine On
-  # Quem pedir index.html diretamente é atendido por index.php (verificação de sessão).
+  # Quem pedir index.html diretamente é atendido pelo index.php.
   RewriteRule ^index\.html$ index.php [L]
 </IfModule>
 
-# Arquivos internos que não devem ser servidos diretamente.
-<FilesMatch "^(config\.php|config\.example\.php|dominio\.php|guarda\.php|db\.php)$">
+# Arquivos internos (só são lidos por "require" no PHP; nunca pelo navegador).
+<FilesMatch "^(config\.php|config\.example\.php|db\.php|dominio\.php|guarda\.php)$">
+  Require all denied
+</FilesMatch>
+
+# Documentação e dados do repositório não são servidos.
+<FilesMatch "\.(md|csv|json|sql)$">
   Require all denied
 </FilesMatch>

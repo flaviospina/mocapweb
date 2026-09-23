@@ -1,81 +1,80 @@
-# MocapWeb • Tela de login com e-mail institucional (@scseduca.com.br)
+# MocapWeb • Login obrigatório, e-mail institucional e painel só para admin
 
-Reconstrução da tela de login do MocapWeb com amarração ao domínio
-**@scseduca.com.br**. Nada mais do projeto é alterado: `index.html`,
-`admin.php`, `api/me.php`, `api/capturas.php` e `api/eventos.php` continuam iguais.
+## Como funciona agora (sem brechas conhecidas)
 
-## Arquivos
-
-| Arquivo | O que é |
+| Arquivo | Papel |
 |---|---|
-| `login.php` | Tela de login completa (substitui a atual). Valida o domínio no HTML (`pattern`), no JavaScript e mostra as mensagens da API. Envia `{email, senha}` em JSON para `api/login.php` e, com sucesso, abre o destino (`?r=index.html` ou `admin.php`). |
-| `api/dominio.php` | **Novo.** Regra do domínio em um único lugar (`MOCAP_DOMINIO_EMAIL`), com a função `email_institucional_valido()` usada pelo servidor. |
-| `api/login.php` | Endpoint de autenticação original, com **uma verificação a mais**: e-mail fora do domínio recebe HTTP 422 antes de qualquer consulta ao banco. Todo o resto (bcrypt, bloqueio 15 min, logs, sessão, CSRF) permanece igual. |
+| `index.php` | **O sistema inteiro está aqui.** O PHP verifica a sessão `MOCAPSESS` antes de enviar qualquer byte; sem login responde 302 para `login.php?r=index.php`. Não depende de `.htaccess`, de `DirectoryIndex` nem de `api/db.php`. |
+| `index.html` | **Só redireciona** para `index.php` (não contém mais o sistema). Mesmo que o servidor sirva o arquivo estático, o visitante cai no `index.php` e, sem sessão, no login. |
+| `login.php` | Tela de login. Aceita somente `@scseduca.com.br` (HTML + JavaScript). Envia `{email, senha}` para `api/login.php`; com sucesso abre o destino (`index.php` ou `admin.php`). |
+| `api/login.php` | Autenticação original + regra do domínio no servidor (422 fora do `@scseduca.com.br`). |
+| `api/dominio.php` | Regra do domínio (uma fonte só). |
+| `api/guarda.php` | Guardas `mocap_exigir_login_pagina()`, `mocap_exigir_admin_pagina()` e `mocap_exigir_admin_api()`. Só o papel `admin` é administrador; qualquer outro papel recebe 403 "Acesso restrito". Nomes com prefixo `mocap_` para não colidir com o `api/db.php`. |
+| `api/logout.php` | Botão **Sair** do sistema: destrói a sessão e apaga o cookie. Não depende do banco. |
+| `.htaccess` | Reforço: `index.php` como página inicial, `index.html` atendido pelo `index.php`, bloqueio de acesso direto a `config.php`, `db.php`, `dominio.php`, `guarda.php` e a arquivos `.md/.csv/.json/.sql`. |
 
-## Login obrigatório antes de carregar a página principal
+Dentro do `index.php`, o JavaScript também mudou:
 
-| Arquivo | O que faz |
-|---|---|
-| `index.php` | **Nova entrada do sistema.** Verifica a sessão no servidor e, sem login, redireciona (302) para `login.php?r=index.php` sem entregar nada da página principal. Logado, entrega o conteúdo do `index.html`. |
-| `.htaccess` | Define `index.php` como página inicial da pasta e faz quem pedir `index.html` diretamente ser atendido por `index.php`. Também bloqueia acesso direto a `config.php`, `db.php`, `dominio.php` e `guarda.php`. Se já existir um `.htaccess` na pasta `mocapweb/`, junte o conteúdo em vez de substituir. |
-| `index.html` | Mesma página publicada em 10/09/2026, com duas mudanças: o redirecionamento de fallback aponta para `index.php`, e o link **Admin** ao lado do nome só aparece para o perfil `admin`. |
+- **Não existe mais "modo autônomo"**: se `api/me.php` não responder 200 com usuário, volta ao login.
+- O link **Admin** só aparece para `papel === 'admin'` (o servidor bloqueia `admin.php` de qualquer forma).
+- Novo link **Sair** ao lado do nome.
 
-Os endereços continuam os mesmos: `https://cecapescs.com.br/mocapweb/` abre o login se não houver sessão e o sistema se houver.
+## Brechas encontradas e fechadas
 
-## Painel admin somente para o perfil `admin`
+1. **`index.html` estático era o sistema.** O Apache entrega arquivos `.html` sem passar pelo PHP, e o `DirectoryIndex` padrão do cPanel prefere `index.html` a `index.php`. Bastava abrir `index.html` (ou a pasta) para carregar tudo; o login só era pedido depois, pelo JavaScript. Agora o sistema só existe dentro do `index.php`.
+2. **"Modo autônomo" no JavaScript.** Se a chamada a `api/me.php` falhasse (rede, bloqueio, 404), o sistema seguia funcionando sem login. Removido.
+3. **Link Admin para todos e `admin.php` sem verificação de papel.** O link só aparece para admin, e `admin.php` precisa da guarda (abaixo).
+4. **Sem botão de sair.** Em computador compartilhado a sessão ficava aberta. Adicionado `Sair` + `api/logout.php`.
+5. **Dependência de arquivo oculto.** O `.htaccess` não aparece no Gerenciador de Arquivos do cPanel sem "Mostrar arquivos ocultos", e um envio incompleto deixava tudo aberto. A proteção agora não depende dele.
+6. **Colisão de nomes com o `api/db.php`.** As funções da guarda ganharam prefixo `mocap_`.
 
-| Arquivo | O que faz |
-|---|---|
-| `api/guarda.php` | **Novo.** Funções `exigir_login_pagina()`, `exigir_admin_pagina()` e `exigir_admin_api()`. Só o papel `admin` é administrador; qualquer outro papel, existente ou criado depois (professor, formador, coordenador…), recebe **403 "Acesso restrito"** com botão para voltar ao MocapWeb. |
+## Painel admin: o que falta no servidor
 
-Para ativar no `admin.php`, acrescente logo após o `require` do `api/db.php`:
+O `admin.php` **não está neste repositório** e no servidor ele está respondendo 404.
+Para o painel voltar restrito ao administrador, o arquivo original precisa começar com:
 
 ```php
+<?php
+require __DIR__ . '/api/db.php';
 require_once __DIR__ . '/api/guarda.php';
-$usuarioLogado = exigir_admin_pagina();
+$usuarioLogado = mocap_exigir_admin_pagina();
 ```
 
-Nos endpoints da API que só o administrador pode usar (por exemplo criar/excluir eventos
-em `api/eventos.php`, listar/excluir capturas em `api/capturas.php`), use após o `require` do `db.php`:
+e os endpoints que só o administrador pode usar (`api/eventos.php` para criar/excluir eventos,
+`api/capturas.php` para listar/excluir capturas) devem chamar, logo após o `require` do `db.php`:
 
 ```php
 require_once __DIR__ . '/guarda.php';
-exigir_admin_api();
+mocap_exigir_admin_api();
 ```
 
-Se me enviar `admin.php`, `api/eventos.php`, `api/capturas.php` e `api/db.php`, devolvo os
-arquivos completos com as guardas já integradas.
+**Me envie `admin.php`, `api/db.php`, `api/me.php`, `api/eventos.php` e `api/capturas.php`
+(ou um .zip da pasta original) e eu devolvo todos completos e integrados.**
 
-## Onde a regra é aplicada
+## Situação do servidor em 23/09/2026
 
-1. **HTML**: o campo de e-mail tem `pattern` e `placeholder` do domínio; o navegador já marca em vermelho.
-2. **JavaScript** (`login.php`): antes de chamar a API, o e-mail é normalizado (minúsculas, sem espaços) e testado contra `^[a-z0-9._%+-]+@scseduca\.com\.br$`. Fora do domínio, nem chega ao servidor.
-3. **PHP** (`api/login.php` + `api/dominio.php`): a mesma regra no servidor, para o caso de alguém chamar `api/login.php` direto (sem passar pela tela). Resposta: HTTP 422 com `{"erro":"Use seu e-mail institucional @scseduca.com.br."}`.
+A pasta `mocapweb/` no servidor está com o conteúdo deste repositório e **sem** vários
+arquivos originais: `admin.php`, `api/me.php`, `api/eventos.php`, `api/capturas.php`,
+`apresentacao.html`, `models/` e `docs/` respondem 404. Tudo que passa pelo `api/db.php`
+(`index.php`, `api/login.php`) responde 500 em branco, o que indica erro no `api/db.php`
+ou no `api/config.php` (por exemplo, dados do banco incorretos).
 
-## Como publicar (cPanel → Gerenciador de arquivos)
+**Este repositório não é o projeto completo.** Ele contém só a área de login e a entrada
+protegida. Os demais arquivos do MocapWeb precisam voltar para a pasta a partir do
+backup/original.
 
-1. Na pasta do sistema (`public_html/mocapweb/`): envie `login.php`, `index.php`, `index.html` e
-   `.htaccess` (substituindo `login.php` e `index.html`; `index.php` e `.htaccess` são novos).
-2. Em `public_html/mocapweb/api/`: envie `dominio.php` e `guarda.php` (novos) e `login.php` (substituindo).
-3. Acrescente a guarda no `admin.php` (duas linhas, ver seção acima) ou me envie o arquivo.
-4. Teste sem estar logado: abrir `https://cecapescs.com.br/mocapweb/` deve ir direto para o login,
-   sem mostrar a tela escura de carregamento.
-5. Teste com e-mail `@gmail.com` (barrado na tela), depois com um `@scseduca.com.br` de perfil
-   professor: o link **Admin** não aparece e `admin.php` responde "Acesso restrito". Com perfil
-   `admin`, o painel abre normalmente.
+## Como publicar (cPanel → Gerenciador de Arquivos)
 
-## Comportamento da tela
+1. Em **Configurações** do Gerenciador de Arquivos, marque **Mostrar arquivos ocultos** (para o `.htaccess`).
+2. Restaure os arquivos originais que faltam (lista acima) a partir do backup.
+3. Na raiz de `public_html/mocapweb/`: envie `index.php`, `index.html`, `login.php` e `.htaccess`, substituindo os atuais.
+4. Em `public_html/mocapweb/api/`: envie `login.php`, `dominio.php`, `guarda.php` e `logout.php`.
+5. Acrescente as linhas da guarda no `admin.php` (ou me envie o arquivo).
+6. Confira o `api/config.php` (host, banco, usuário, senha); enquanto ele estiver errado, o login responde 500.
 
-- Se já houver sessão válida (`api/me.php` responde 200), redireciona direto para o destino.
-- Parâmetro `?r=` aceita somente nomes simples de arquivo da mesma pasta (`index.html`, `admin.php`); qualquer outro valor cai em `index.html`.
-- Mensagens tratadas: e-mail fora do domínio (422), e-mail ou senha inválidos (401), conta bloqueada por 15 min após 5 tentativas (423/429), servidor indisponível (5xx) e falha de conexão.
-- "Esqueci minha senha" orienta a procurar o administrador do CECAPE, como no tutorial.
-- Botão mostrar/ocultar senha, `autocomplete` para gerenciadores de senha, sem cache da página.
+## Testes de aceitação
 
-## Situação do servidor em 22/09/2026
-
-`login.php`, `api/me.php` e `api/login.php` estão respondendo **HTTP 500** com a
-mensagem "Configuração ausente: copie api/config.example.php para api/config.php e
-preencha os dados do banco". Ou seja, o `api/config.php` não está no servidor.
-Enquanto isso não for corrigido, nenhuma tela de login funciona; a tela nova mostra
-"O servidor está indisponível no momento. Avise a equipe de TI do CECAPE."
+- Aba anônima em `https://cecapescs.com.br/mocapweb/`, `…/index.html` e `…/index.php`: cai no login **sem** mostrar a tela escura de carregamento.
+- E-mail `@gmail.com`: barrado na tela. E-mail `@scseduca.com.br` de professor: entra; sem link Admin; `…/admin.php` responde "Acesso restrito".
+- Perfil `admin`: link Admin aparece e o painel abre.
+- Botão **Sair**: volta ao login e `…/index.php` volta a exigir login.
