@@ -41,25 +41,35 @@ if (!is_file($configArquivo)) {
     echo json_encode(['erro' => 'Configuração ausente: copie api/config.example.php para api/config.php e preencha os dados do banco.'], JSON_UNESCAPED_UNICODE);
     exit;
 }
-$cfg = require $configArquivo;
-if (!is_array($cfg)) {
-    // Compatibilidade com config.php antigo baseado em constantes.
-    $cfg = [
-        'host'    => defined('DB_HOST') ? DB_HOST : 'localhost',
-        'db'      => defined('DB_NAME') ? DB_NAME : '',
-        'user'    => defined('DB_USER') ? DB_USER : '',
-        'pass'    => defined('DB_PASS') ? DB_PASS : '',
-        'charset' => defined('DB_CHARSET') ? DB_CHARSET : 'utf8mb4',
-    ];
+require_once __DIR__ . '/config_normalizar.php';
+
+// Carrega o config.php isolado: aceita "return [...]", constantes define() ou variáveis soltas.
+$cfgBruto = (static function (string $arquivo): array {
+    $retorno = require $arquivo;
+    if (is_array($retorno)) {
+        return $retorno;
+    }
+    $vars = get_defined_vars();
+    unset($vars['arquivo'], $vars['retorno']);
+    return $vars;
+})($configArquivo);
+
+try {
+    $cfg = mocap_config_normalizar($cfgBruto);
+} catch (RuntimeException $e) {
+    error_log('[MocapWeb] ' . $e->getMessage());
+    http_response_code(500);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['erro' => 'Configuração incompleta: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
+    exit;
 }
 
 // ---------------------------------------------------------------------------
 // Conexão PDO
 // ---------------------------------------------------------------------------
-$dsn = $cfg['dsn'] ?? sprintf('mysql:host=%s;dbname=%s;charset=%s',
-    $cfg['host'] ?? 'localhost', $cfg['db'] ?? '', $cfg['charset'] ?? 'utf8mb4');
+$dsn = $cfg['dsn'];
 
-$pdo = new PDO($dsn, (string)($cfg['user'] ?? ''), (string)($cfg['pass'] ?? ''), [
+$pdo = new PDO($dsn, $cfg['user'], $cfg['pass'], [
     PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
     PDO::ATTR_EMULATE_PREPARES   => false,

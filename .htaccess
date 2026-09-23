@@ -12,7 +12,7 @@ DirectoryIndex index.php index.html
 </IfModule>
 
 # Arquivos internos (só são lidos por "require" no PHP; nunca pelo navegador).
-<FilesMatch "^(config\.php|config\.example\.php|db\.php|dominio\.php|guarda\.php)$">
+<FilesMatch "^(config\.php|config\.example\.php|config_normalizar\.php|db\.php|dominio\.php|guarda\.php)$">
   Require all denied
 </FilesMatch>
 
