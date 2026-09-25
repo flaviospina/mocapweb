@@ -90,7 +90,8 @@ frm.addEventListener('submit', async e => {
       })
     });
     const j = await r.json();
-    if (r.ok && j.ok) { location.href = destino; return; }
+    // Primeiro acesso: o servidor manda para alterar-senha.php; depois, para o destino normal
+    if (r.ok && j.ok) { location.href = j.precisa_trocar_senha ? 'alterar-senha.php' : destino; return; }
     erro.textContent = j.erro || 'Falha no login.';
     erro.style.display = 'block';
   } catch(_) {

@@ -49,6 +49,13 @@ O sistema funciona de dois modos:
 5. Acesse `login.php`, entre, e pronto: o `index.html` passa a exigir login e mostra o botão **☁ Salvar no servidor** após cada gravação.
 6. Na página **`admin.php`**: crie eventos (dia e horário), filtre as capturas por evento/data/busca, ordene qualquer coluna clicando no cabeçalho, veja o resumo (nº de capturas, participantes, tempo total, semelhança média), baixe o JSON de cada captura ou exporte a tabela em CSV.
 
+### Primeiro acesso e troca de senha
+
+- `db/migracao-primeiro-acesso.sql` adiciona a `usuarios` as colunas `precisa_trocar_senha` (1 = obrigado a definir senha ao entrar), `primeiro_login_em` (NULL = nunca acessou) e `senha_alterada_em`.
+- No login, quem tem `precisa_trocar_senha = 1` é levado a **`alterar-senha.php`** (o `index.html` e o `admin.php` também verificam e redirecionam); ao salvar a nova senha (mín. 8 caracteres, letras e números, diferente da inicial) o usuário volta ao sistema. Link **Alterar senha** no cabeçalho para trocas voluntárias.
+- **Controle de acesso** (painel no `admin.php`, só para administradores; API `api/usuarios.php`): tabela com todos os usuários e a situação **Nunca acessou / Pendente (trocar senha) / Acessou · senha própria**, datas do primeiro e do último acesso e da troca de senha, e ações **Exigir troca**, **Redefinir** (volta para a senha inicial e obriga a troca — serve para "esqueci minha senha") e **Desativar/Ativar**.
+- Pelo SQL, para obrigar alguém a trocar de novo: `UPDATE usuarios SET precisa_trocar_senha = 1 WHERE email = '...'`.
+
 ### Segurança implementada
 
 - Senhas com **bcrypt** (`password_hash`), nunca em texto puro

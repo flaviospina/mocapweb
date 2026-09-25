@@ -3,6 +3,8 @@
  * POST /api/login.php  { "email": "...", "senha": "..." }
  * Aceita somente e-mails institucionais @scseduca.com.br (api/dominio.php).
  * Bloqueia a conta por 15 minutos após 5 tentativas erradas.
+ * Resposta traz `precisa_trocar_senha` e `redirecionar` (alterar-senha.php
+ * no primeiro acesso, index.html nos demais).
  */
 declare(strict_types=1);
 require __DIR__ . '/db.php';
@@ -54,14 +56,31 @@ if (!password_verify($senha, $u['senha_hash'])) {
 
 // Sucesso: renova o ID da sessão (contra fixação de sessão)
 session_regenerate_id(true);
+// Primeiro acesso: colunas podem não existir se a migração ainda não rodou → tolera
+$precisaTrocar = array_key_exists('precisa_trocar_senha', $u) ? (int)$u['precisa_trocar_senha'] : 0;
+$primeiroAcesso = array_key_exists('primeiro_login_em', $u) && $u['primeiro_login_em'] === null;
+
 $_SESSION['usuario'] = [
   'id'    => (int)$u['id'],
   'nome'  => $u['nome'],
   'email' => $u['email'],
   'papel' => $u['papel'],
+  'precisa_trocar_senha' => $precisaTrocar,
 ];
-$pdo->prepare('UPDATE usuarios SET tentativas_login = 0, bloqueado_ate = NULL, ultimo_login = NOW() WHERE id = ?')
-    ->execute([$u['id']]);
-registrar_log($pdo, (int)$u['id'], 'login_ok');
+try {
+  $pdo->prepare('UPDATE usuarios SET tentativas_login = 0, bloqueado_ate = NULL, ultimo_login = NOW(), primeiro_login_em = COALESCE(primeiro_login_em, NOW()) WHERE id = ?')
+      ->execute([$u['id']]);
+} catch (PDOException $e) {
+  // banco ainda sem a coluna primeiro_login_em (migração pendente)
+  $pdo->prepare('UPDATE usuarios SET tentativas_login = 0, bloqueado_ate = NULL, ultimo_login = NOW() WHERE id = ?')->execute([$u['id']]);
+}
+registrar_log($pdo, (int)$u['id'], $primeiroAcesso ? 'login_primeiro_acesso' : 'login_ok');
 
-json_out(['ok' => true, 'usuario' => $_SESSION['usuario'], 'csrf' => csrf_token()]);
+json_out([
+  'ok' => true,
+  'usuario' => $_SESSION['usuario'],
+  'csrf' => csrf_token(),
+  'precisa_trocar_senha' => $precisaTrocar === 1,
+  'primeiro_acesso' => $primeiroAcesso,
+  'redirecionar' => $precisaTrocar === 1 ? 'alterar-senha.php' : 'index.html',
+]);

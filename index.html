@@ -1129,7 +1129,7 @@ const ORT_CDN = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.29.0/dist/';
 const ORT_CDN_RESERVA = ['https://unpkg.com/onnxruntime-web@1.29.0/dist/', 'https://cdnjs.cloudflare.com/ajax/libs/onnxruntime-web/1.29.0/'];
 // COCO (17 pontos do YOLO) → índices do BlazePose (33 pontos)
 const COCO2BP = [0, 2, 5, 7, 8, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28];
-const MOCAP_VERSAO = 'v2.6 · 25/09/2026';   // aparece no rodapé e no status do YOLO (para saber qual index.html está no ar)
+const MOCAP_VERSAO = 'v2.7 · 25/09/2026';   // aparece no rodapé e no status do YOLO (para saber qual index.html está no ar)
 let yoloQuality = 'n', yoloSizePref = 0;
 // Preferência de processamento: 'auto' | 'webgpu' | 'wasm' (lembrada no navegador)
 let yoloBackendPref = (() => { try { return localStorage.getItem('mocap.yoloBackend') || 'auto'; } catch(_) { return 'auto'; } })();
@@ -2671,13 +2671,14 @@ async function initServerSession() {
     if (r.status === 401) { location.href = 'login.php?r=index.html'; return; }
     if (r.ok) {
       const j = await r.json();
+      // Primeiro acesso (ou troca exigida pelo administrador): define a senha antes de usar
+      if (j.precisa_trocar_senha) { location.href = 'alterar-senha.php'; return; }
       serverUser = j.usuario; serverCsrf = j.csrf;
       const b = document.getElementById('userBadge');
       b.textContent = '👤 ' + serverUser.nome + ' · ';
-      const a = document.createElement('a');
-      a.href = 'admin.php'; a.textContent = 'Admin';
-      a.style.color = 'var(--accent)';
-      b.appendChild(a);
+      const mk = (href, txt) => { const a = document.createElement('a'); a.href = href; a.textContent = txt; a.style.color = 'var(--accent)'; return a; };
+      if (serverUser.papel === 'admin') { b.appendChild(mk('admin.php', 'Admin')); b.appendChild(document.createTextNode(' · ')); }
+      b.appendChild(mk('alterar-senha.php', 'Alterar senha'));
       b.style.display = 'inline-flex';
     }
   } catch(_) { /* sem servidor: modo autônomo */ }

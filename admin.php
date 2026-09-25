@@ -3,6 +3,12 @@ declare(strict_types=1);
 require __DIR__ . '/api/db.php';
 if (empty($_SESSION['usuario'])) { header('Location: login.php?r=admin.php'); exit; }
 $usuario = $_SESSION['usuario'];
+// Primeiro acesso: troca de senha antes de qualquer página
+try {
+  $stTs = $pdo->prepare('SELECT precisa_trocar_senha FROM usuarios WHERE id = ?');
+  $stTs->execute([$usuario['id']]);
+  if ((int)$stTs->fetchColumn() === 1) { header('Location: alterar-senha.php'); exit; }
+} catch (PDOException $e) { /* migração pendente */ }
 $csrf = csrf_token();
 ?><!DOCTYPE html>
 <html lang="pt-BR">
@@ -72,6 +78,7 @@ $csrf = csrf_token();
   <h1>Mocap<span>Web</span> · Administração</h1>
   <div class="user">
     <span>👤 <?php echo htmlspecialchars($usuario['nome']); ?> (<?php echo htmlspecialchars($usuario['papel']); ?>)</span>
+    <a class="btn" href="alterar-senha.php">🔑 Alterar senha</a>
     <a class="btn" href="index.html">🎥 Ir para a captura</a>
     <button class="btn danger" onclick="sair()">Sair</button>
   </div>
@@ -123,6 +130,29 @@ $csrf = csrf_token();
     <div class="empty" id="vazio" style="display:none;">Nenhuma captura encontrada com os filtros atuais.</div>
     <div class="msg" id="msgTabela"></div>
   </div>
+
+<?php if ($usuario['papel'] === 'admin'): ?>
+  <!-- Controle de acesso (somente admin) -->
+  <div class="panel" id="painelUsuarios">
+    <h2>🔐 Controle de acesso dos usuários</h2>
+    <p style="font-size:12px;color:var(--text2);line-height:1.5;">
+      Quem <b>nunca acessou</b> ainda está com a senha inicial. No primeiro acesso o sistema obriga a criar uma senha própria
+      (<b>pendente</b> = já entrou mas ainda não concluiu a troca). Use <b>Redefinir</b> se alguém esquecer a senha:
+      ela volta para a inicial e a troca é exigida de novo.
+    </p>
+    <div class="cards" id="resumoUsuarios"></div>
+    <div class="table-wrap">
+      <table id="tblUsuarios">
+        <thead><tr>
+          <th>Nome</th><th>Instituição</th><th>E-mail</th><th>Perfil</th><th>Situação</th>
+          <th>Primeiro acesso</th><th>Último acesso</th><th>Senha alterada em</th><th>Ações</th>
+        </tr></thead>
+        <tbody id="tbodyUsuarios"></tbody>
+      </table>
+    </div>
+    <div class="msg" id="msgUsuarios"></div>
+  </div>
+<?php endif; ?>
 </main>
 
 <script>
@@ -290,7 +320,62 @@ async function sair() {
   location.href = 'login.php';
 }
 
+// ---------- Controle de acesso (somente admin) ----------
+const SIT = {
+  nunca_acessou:  { t:'Nunca acessou', c:'bad' },
+  pendente_troca: { t:'Pendente (trocar senha)', c:'mid' },
+  ok:             { t:'Acessou · senha própria', c:'good' },
+};
+function fmtOpt(s){ return s ? fmtDataHora(s) : '—'; }
+
+async function carregarUsuarios() {
+  if (!document.getElementById('painelUsuarios')) return;
+  const r = await api('api/usuarios.php');
+  const j = await r.json();
+  if (!j.ok) { mostrarMsg('msgUsuarios', j.erro||'Falha ao carregar usuários.', false); return; }
+  const rs = j.resumo;
+  document.getElementById('resumoUsuarios').innerHTML = `
+    <div class="stat"><div class="v">${rs.total}</div><div class="l">usuários</div></div>
+    <div class="stat"><div class="v" style="color:var(--red)">${rs.nunca_acessou}</div><div class="l">nunca acessaram</div></div>
+    <div class="stat"><div class="v" style="color:var(--yellow)">${rs.pendente_troca}</div><div class="l">pendentes de troca</div></div>
+    <div class="stat"><div class="v">${rs.ok}</div><div class="l">com senha própria</div></div>`;
+  document.getElementById('tbodyUsuarios').innerHTML = j.usuarios.map(u => {
+    const s = SIT[u.situacao] || SIT.ok;
+    const inativo = !u.ativo;
+    return `<tr${inativo?' style="opacity:.5"':''}>
+      <td><b>${esc(u.nome)}</b>${inativo?' <span class="pill na">inativo</span>':''}</td>
+      <td>${esc(u.instituicao||'—')}</td>
+      <td>${esc(u.email)}</td>
+      <td>${esc(u.papel)}</td>
+      <td><span class="pill ${s.c}">${s.t}</span></td>
+      <td>${fmtOpt(u.primeiro_login_em)}</td>
+      <td>${fmtOpt(u.ultimo_login)}</td>
+      <td>${fmtOpt(u.senha_alterada_em)}</td>
+      <td class="row-actions">
+        <button class="btn" title="Exigir nova senha no próximo acesso" onclick="acaoUsuario(${u.id},'forcar_troca','${esc(u.nome)}')">🔑 Exigir troca</button>
+        <button class="btn" title="Voltar para a senha inicial (scseduca) e exigir troca" onclick="acaoUsuario(${u.id},'redefinir_senha','${esc(u.nome)}')">↺ Redefinir</button>
+        <button class="btn ${inativo?'':'danger'}" onclick="acaoUsuario(${u.id},'${inativo?'ativar':'desativar'}','${esc(u.nome)}')">${inativo?'✔ Ativar':'⛔ Desativar'}</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function acaoUsuario(id, acao, nome) {
+  const perg = {
+    forcar_troca:    `Exigir que ${nome} defina uma nova senha no próximo acesso?`,
+    redefinir_senha: `Redefinir a senha de ${nome} para a senha inicial (scseduca)?\nA pessoa terá de criar uma nova senha ao entrar.`,
+    desativar:       `Desativar a conta de ${nome}? A pessoa não conseguirá mais entrar.`,
+    ativar:          `Reativar a conta de ${nome}?`,
+  }[acao];
+  if (!confirm(perg)) return;
+  const r = await api('api/usuarios.php', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, acao }) });
+  const j = await r.json();
+  mostrarMsg('msgUsuarios', j.ok ? j.mensagem : (j.erro||'Falha na ação.'), !!j.ok);
+  if (j.ok) carregarUsuarios();
+}
+
 carregarEventos().then(carregarCapturas);
+carregarUsuarios();
 </script>
 </body>
 </html>

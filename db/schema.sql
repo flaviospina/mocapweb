@@ -23,9 +23,12 @@ CREATE TABLE IF NOT EXISTS usuarios (
   senha_hash     VARCHAR(255)  NOT NULL,
   papel          ENUM('admin','professor') NOT NULL DEFAULT 'professor',
   ativo          TINYINT(1)    NOT NULL DEFAULT 1,
+  precisa_trocar_senha TINYINT(1) NOT NULL DEFAULT 1,   -- 1 = obrigado a definir senha ao entrar (primeiro acesso)
   tentativas_login TINYINT UNSIGNED NOT NULL DEFAULT 0,
   bloqueado_ate  DATETIME      NULL,
   ultimo_login   DATETIME      NULL,
+  primeiro_login_em DATETIME   NULL,          -- NULL = nunca acessou
+  senha_alterada_em DATETIME   NULL,          -- última troca de senha
   criado_em      DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uq_usuarios_email (email)
