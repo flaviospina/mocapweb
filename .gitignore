@@ -1,2 +1,4 @@
 # Nunca versionar credenciais do banco
 api/config.php
+# logs gerados no servidor
+logs/*.log
