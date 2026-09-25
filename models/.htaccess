@@ -1,0 +1,15 @@
+# Modelos ONNX do motor YOLO-pose (arquivos binários grandes)
+<IfModule mod_authz_core.c>
+  Require all granted
+</IfModule>
+AddType application/octet-stream .onnx
+# Sem compressão (binário) e cache longo no navegador: baixa uma vez só
+<IfModule mod_headers.c>
+  <FilesMatch "\.onnx$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+    Header set Access-Control-Allow-Origin "*"
+  </FilesMatch>
+</IfModule>
+<IfModule mod_deflate.c>
+  SetEnvIfNoCase Request_URI \.onnx$ no-gzip
+</IfModule>

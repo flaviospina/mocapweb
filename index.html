@@ -1117,6 +1117,8 @@ let engine = 'mediapipe';                 // 'mediapipe' | 'yolo'
 const MP_MAX_PEOPLE = 6, YOLO_MAX_PEOPLE = 20;
 const YOLO_MODELS = { n: 'models/yolov8n-pose.onnx', s: 'models/yolov8s-pose.onnx' };
 const ORT_CDN = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.29.0/dist/';
+// CDNs alternativos, usados se o primeiro estiver bloqueado na rede local
+const ORT_CDN_RESERVA = ['https://unpkg.com/onnxruntime-web@1.29.0/dist/', 'https://cdnjs.cloudflare.com/ajax/libs/onnxruntime-web/1.29.0/'];
 // COCO (17 pontos do YOLO) → índices do BlazePose (33 pontos)
 const COCO2BP = [0, 2, 5, 7, 8, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28];
 let yoloQuality = 'n', yoloSizePref = 0;
@@ -1167,16 +1169,30 @@ self.onmessage = async e => {
   const m = e.data;
   if (m.type === 'init') {
     try {
-      importScripts(m.ortBase + 'ort.webgpu.min.js');
-      ort.env.wasm.wasmPaths = m.ortBase;
+      // 1) motor ONNX Runtime (tenta cada CDN da lista até um responder)
+      postMessage({ type:'status', text:'Baixando o motor ONNX Runtime...' });
+      let base = '', ultimoErro = '';
+      for (const b of m.ortBases) {
+        try { importScripts(b + 'ort.webgpu.min.js'); base = b; break; }
+        catch(err) { ultimoErro = String(err && err.message || err); }
+      }
+      if (!base) throw new Error('não foi possível baixar o ONNX Runtime de nenhum CDN (' + m.ortBases.join(', ') + '). A rede da escola pode estar bloqueando cdn.jsdelivr.net. Detalhe: ' + ultimoErro);
+      ort.env.wasm.wasmPaths = base;
       ort.env.wasm.numThreads = m.threads;
       if (session) { try { await session.release(); } catch(_) {} session = null; }
+      // 2) sessão com o modelo já baixado pela página (bytes transferidos)
+      const modelo = new Uint8Array(m.modelData);
       let backend = '';
       if (self.navigator && self.navigator.gpu) {
-        try { session = await ort.InferenceSession.create(m.modelUrl, { executionProviders:['webgpu'], graphOptimizationLevel:'all' }); backend = 'WebGPU'; }
+        postMessage({ type:'status', text:'Preparando o modelo na placa de vídeo (WebGPU)...' });
+        try { session = await ort.InferenceSession.create(modelo, { executionProviders:['webgpu'], graphOptimizationLevel:'all' }); backend = 'WebGPU'; }
         catch(err) { console.warn('WebGPU indisponível no worker, usando CPU:', err); }
       }
-      if (!session) { session = await ort.InferenceSession.create(m.modelUrl, { executionProviders:['wasm'], graphOptimizationLevel:'all' }); backend = 'CPU (WASM)'; }
+      if (!session) {
+        postMessage({ type:'status', text:'Preparando o modelo no processador (CPU)...' });
+        session = await ort.InferenceSession.create(modelo, { executionProviders:['wasm'], graphOptimizationLevel:'all' });
+        backend = 'CPU (WASM)';
+      }
       inName = session.inputNames[0]; outName = session.outputNames[0];
       postMessage({ type:'ready', backend });
     } catch(err) { postMessage({ type:'error', message: String(err && err.message || err) }); }
@@ -1211,6 +1227,7 @@ function ensureYoloWorker() {
   w.onmessage = e => {
     const m = e.data;
     if (m.type === 'ready') { yolo.session = true; yolo.backend = m.backend; yolo._readyResolve && yolo._readyResolve(); }
+    else if (m.type === 'status') { setYoloStatus(m.text); }
     else if (m.type === 'error') { yolo.session = false; yolo._readyReject && yolo._readyReject(new Error(m.message)); }
     else if (m.type === 'result') {
       if (m.error) console.warn('YOLO worker:', m.error);
@@ -1224,6 +1241,36 @@ function ensureYoloWorker() {
   return w;
 }
 
+/* Baixa o arquivo .onnx pela página (com progresso) e explica cada
+   falha em português: arquivo não enviado ao servidor (404), bloqueio
+   (403), servidor devolvendo página em vez do modelo, etc. */
+async function baixarModeloYolo(url) {
+  const nome = url.split('/').pop();
+  let r;
+  try { r = await fetch(url, { cache: 'force-cache' }); }
+  catch(e) { throw new Error(`falha de rede ao baixar ${nome} (${e.message}). Verifique a conexão.`); }
+  if (r.status === 404) throw new Error(`o arquivo models/${nome} não está no servidor (erro 404). Envie a pasta "models" com os arquivos .onnx para dentro de mocapweb/.`);
+  if (r.status === 403) throw new Error(`o servidor bloqueou o acesso a models/${nome} (erro 403). Confira as permissões da pasta (755) e dos arquivos (644) no cPanel, ou o .htaccess.`);
+  if (!r.ok) throw new Error(`o servidor respondeu ${r.status} ao pedir models/${nome}.`);
+  const tipo = (r.headers.get('content-type') || '').toLowerCase();
+  if (tipo.includes('text/html')) throw new Error(`o servidor devolveu uma página HTML em vez do arquivo models/${nome} (provável redirecionamento ou página de erro).`);
+  const total = +(r.headers.get('content-length') || 0);
+  if (!r.body) return await r.arrayBuffer();
+  const reader = r.body.getReader(), partes = []; let lido = 0, ultimo = -1;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    partes.push(value); lido += value.length;
+    const mb = (lido/1048576).toFixed(1);
+    const pct = total ? Math.round(lido/total*100) : -1;
+    if (pct !== ultimo) { ultimo = pct; setYoloStatus(`Baixando modelo ${nome}: ${mb} MB${total ? ` de ${(total/1048576).toFixed(1)} MB (${pct}%)` : ''}...`); }
+  }
+  const buf = new Uint8Array(lido); let off = 0;
+  for (const p of partes) { buf.set(p, off); off += p.length; }
+  if (lido < 1_000_000) throw new Error(`models/${nome} veio com apenas ${lido} bytes — o arquivo no servidor está incompleto ou corrompido. Reenvie-o.`);
+  return buf.buffer;
+}
+
 async function initYolo() {
   if (yolo.loading) return;
   yolo.loading = true;
@@ -1231,14 +1278,21 @@ async function initYolo() {
   setYoloStatus('Carregando motor YOLO...');
   statusLabel.textContent = 'Carregando YOLO-pose...';
   try {
+    if (!window.Worker || !window.OffscreenCanvas || !window.createImageBitmap) {
+      throw new Error('este navegador não suporta os recursos necessários (Worker/OffscreenCanvas). Use o Google Chrome ou o Microsoft Edge atualizados.');
+    }
+    const modelData = await baixarModeloYolo(new URL(YOLO_MODELS[yoloQuality], location.href).href);
     const w = ensureYoloWorker();
-    const ready = new Promise((res, rej) => { yolo._readyResolve = res; yolo._readyReject = rej; });
+    const ready = new Promise((res, rej) => {
+      yolo._readyResolve = res; yolo._readyReject = rej;
+      setTimeout(() => rej(new Error('tempo esgotado ao preparar o modelo (3 min). Recarregue a página; se persistir, escolha o modelo "Rápido (nano)".')), 180000);
+    });
     w.postMessage({
       type: 'init',
-      ortBase: window.MOCAP_ORT_BASE || ORT_CDN,
-      modelUrl: new URL(YOLO_MODELS[yoloQuality], location.href).href,
+      ortBases: [window.MOCAP_ORT_BASE || ORT_CDN, ...ORT_CDN_RESERVA],
+      modelData,
       threads: self.crossOriginIsolated ? Math.min(4, navigator.hardwareConcurrency || 2) : 1
-    });
+    }, [modelData]);
     await ready;
     yolo.size = yoloSizePref || (yolo.backend === 'WebGPU' ? 640 : 416);
     setYoloStatus(`YOLOv8-pose ${yoloQuality === 'n' ? 'nano' : 'small'} · ${yolo.backend} · ${yolo.size} px`);
