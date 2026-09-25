@@ -1299,9 +1299,17 @@ async function initYolo() {
     statusLabel.textContent = cameraRunning ? 'Câmera ativa' : 'YOLO pronto';
     lastVideoTime = -1;
   } catch(e) {
-    setYoloStatus('Erro ao carregar o YOLO: ' + e.message);
+    setYoloStatus('Erro ao carregar o YOLO: ' + e.message + ' — voltando ao motor MediaPipe (até 6 pessoas).');
     statusLabel.textContent = 'Erro no motor YOLO';
     console.error(e);
+    // Volta ao MediaPipe para a captura não ficar parada com o esqueleto congelado
+    if (engine === 'yolo') {
+      engine = 'mediapipe';
+      document.getElementById('engineSel').value = 'mediapipe';
+      document.getElementById('qualityMp').style.display = 'block';
+      if (numPeople > MP_MAX_PEOPLE) { document.getElementById('numPeopleR').value = MP_MAX_PEOPLE; await onNumPeopleChange(MP_MAX_PEOPLE); }
+      tracker.reset(); lastVideoTime = -1;
+    }
   }
   yolo.loading = false;
   updateEngineFooter();
@@ -1401,6 +1409,7 @@ async function processFrame() {
       let persons = null, world = [];
       if (engine === 'yolo') {
         if (yolo.session) { lastVideoTime = videoEl.currentTime; frameIdx++; persons = await yoloDetect(videoEl); }
+        else if (canvas.width) { ctx.clearRect(0, 0, canvas.width, canvas.height); }   // sem motor: não deixa esqueleto antigo na tela
       } else if (poseLandmarker) {
         lastVideoTime = videoEl.currentTime; frameIdx++;
         const r = poseLandmarker.detectForVideo(videoEl, ts);
