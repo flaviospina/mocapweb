@@ -18,6 +18,7 @@ SET time_zone = '-03:00';
 CREATE TABLE IF NOT EXISTS usuarios (
   id             INT UNSIGNED NOT NULL AUTO_INCREMENT,
   nome           VARCHAR(120)  NOT NULL,
+  instituicao    VARCHAR(160)  NULL,          -- escola/unidade do professor
   email          VARCHAR(190)  NOT NULL,
   senha_hash     VARCHAR(255)  NOT NULL,
   papel          ENUM('admin','professor') NOT NULL DEFAULT 'professor',
