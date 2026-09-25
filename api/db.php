@@ -82,6 +82,10 @@ function mocap_carregar_config(): array {
   ];
 }
 
+// Regra do e-mail institucional (usada pelo login) — carregada aqui para
+// que qualquer versão do login.php a encontre, com ou sem o require próprio.
+if (is_file(__DIR__ . '/dominio.php')) require_once __DIR__ . '/dominio.php';
+
 $cfg = mocap_carregar_config();
 
 if ($cfg['encontrado'] === '') {
@@ -158,6 +162,36 @@ function require_csrf(): void {
     json_out(['erro' => 'Token de segurança (CSRF) inválido. Recarregue a página.'], 403);
   }
 }
+
+/* ── Apelidos (nomes alternativos das mesmas funções) ──────
+   A produção tem arquivos que chamam estas funções em inglês
+   (require_login, corpo_json...) e outros em português
+   (exigir_login, ler_json...). Todos funcionam com este db.php.
+   Os "function_exists" evitam erro se outro arquivo já definiu. */
+if (!function_exists('exigir_login'))   { function exigir_login(): array { return require_login(); } }
+if (!function_exists('exigir_csrf'))    { function exigir_csrf(): void { require_csrf(); } }
+if (!function_exists('validar_csrf'))   { function validar_csrf(): void { require_csrf(); } }
+if (!function_exists('token_csrf'))     { function token_csrf(): string { return csrf_token(); } }
+if (!function_exists('gerar_csrf'))     { function gerar_csrf(): string { return csrf_token(); } }
+if (!function_exists('ler_json'))       { function ler_json(): array { return corpo_json(); } }
+if (!function_exists('ler_corpo_json')) { function ler_corpo_json(): array { return corpo_json(); } }
+if (!function_exists('corpo_requisicao')){ function corpo_requisicao(): array { return corpo_json(); } }
+if (!function_exists('json_response'))  {
+  // formato padrão { ok, data, mensagem } usado em outros sistemas do CECAPE
+  function json_response(bool $ok, mixed $data = null, string $msg = '', int $status = 200): void {
+    json_out(['ok' => $ok, 'data' => $data, 'mensagem' => $msg], $status);
+  }
+}
+if (!function_exists('resposta_json'))  { function resposta_json($data, int $code = 200): void { json_out($data, $code); } }
+if (!function_exists('usuario_logado')) { function usuario_logado(): ?array { return $_SESSION['usuario'] ?? null; } }
+if (!function_exists('exigir_papel'))   {
+  function exigir_papel(string ...$papeis): array {
+    $u = require_login();
+    if ($papeis && !in_array($u['papel'] ?? '', $papeis, true)) json_out(['erro' => 'Sem permissão para esta ação.'], 403);
+    return $u;
+  }
+}
+if (!function_exists('require_role'))   { function require_role(string ...$papeis): array { return exigir_papel(...$papeis); } }
 
 function registrar_log(PDO $pdo, ?int $usuarioId, string $acao, ?string $detalhe = null): void {
   try {

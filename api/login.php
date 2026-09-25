@@ -1,10 +1,12 @@
 <?php
 /**
  * POST /api/login.php  { "email": "...", "senha": "..." }
+ * Aceita somente e-mails institucionais @scseduca.com.br (api/dominio.php).
  * Bloqueia a conta por 15 minutos após 5 tentativas erradas.
  */
 declare(strict_types=1);
 require __DIR__ . '/db.php';
+require_once __DIR__ . '/dominio.php';
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
   json_out(['erro' => 'Método não permitido.'], 405);
@@ -16,6 +18,11 @@ $senha = (string)($body['senha'] ?? '');
 
 if ($email === '' || $senha === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
   json_out(['erro' => 'Informe e-mail e senha válidos.'], 400);
+}
+
+// Amarração ao domínio institucional: fora do @scseduca.com.br não consulta o banco.
+if (!email_institucional_valido($email)) {
+  json_out(['erro' => 'Use seu e-mail institucional @' . MOCAP_DOMINIO_EMAIL . '.'], 422);
 }
 
 // pequena pausa contra ataques de força bruta automatizados
