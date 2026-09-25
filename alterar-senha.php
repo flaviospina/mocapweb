@@ -45,6 +45,8 @@ try {
   .msg.ok { background:rgba(0,229,160,0.1); border:1px solid rgba(0,229,160,0.3); color:var(--accent); }
   a.voltar { font-size:12px; color:var(--text2); text-align:center; text-decoration:none; }
   a.voltar:hover { color:var(--accent); }
+  .links { display:flex; justify-content:center; gap:18px; }
+  a.voltar.sair { color:var(--red); }
   footer { margin-top:6px; font-size:10.5px; color:var(--text2); text-align:center; line-height:1.6; }
 </style>
 </head>
@@ -79,7 +81,10 @@ try {
       <li id="r4">Confirmação igual à nova senha</li>
     </ul>
     <button class="enviar" id="btn">Salvar nova senha</button>
-    <?php if (!$obrigatorio): ?><a class="voltar" href="index.html">← Voltar ao sistema sem alterar</a><?php endif; ?>
+    <div class="links">
+      <?php if (!$obrigatorio): ?><a class="voltar" href="index.html">← Voltar ao sistema</a><?php endif; ?>
+      <a class="voltar sair" href="#" id="sair">⏻ Sair</a>
+    </div>
     <footer>CECAPE — Centro de Capacitação dos Profissionais da Educação<br>Dra. Zilda Arns · São Caetano do Sul</footer>
   </form>
 <script>
@@ -95,6 +100,11 @@ function regras() {
   return ok.every(Boolean);
 }
 ['nova', 'conf'].forEach(id => $(id).addEventListener('input', regras));
+$('sair').addEventListener('click', async e => {
+  e.preventDefault();
+  try { await fetch('api/logout.php', { method: 'POST', headers: { 'X-CSRF-Token': CSRF } }); } catch(_) {}
+  location.href = 'login.php';
+});
 $('frm').addEventListener('submit', async e => {
   e.preventDefault();
   $('erro').style.display = 'none'; $('okmsg').style.display = 'none';

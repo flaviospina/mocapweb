@@ -1129,7 +1129,7 @@ const ORT_CDN = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.29.0/dist/';
 const ORT_CDN_RESERVA = ['https://unpkg.com/onnxruntime-web@1.29.0/dist/', 'https://cdnjs.cloudflare.com/ajax/libs/onnxruntime-web/1.29.0/'];
 // COCO (17 pontos do YOLO) → índices do BlazePose (33 pontos)
 const COCO2BP = [0, 2, 5, 7, 8, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28];
-const MOCAP_VERSAO = 'v2.7 · 25/09/2026';   // aparece no rodapé e no status do YOLO (para saber qual index.html está no ar)
+const MOCAP_VERSAO = 'v2.7.1 · 25/09/2026';   // aparece no rodapé e no status do YOLO (para saber qual index.html está no ar)
 let yoloQuality = 'n', yoloSizePref = 0;
 // Preferência de processamento: 'auto' | 'webgpu' | 'wasm' (lembrada no navegador)
 let yoloBackendPref = (() => { try { return localStorage.getItem('mocap.yoloBackend') || 'auto'; } catch(_) { return 'auto'; } })();
@@ -2679,9 +2679,23 @@ async function initServerSession() {
       const mk = (href, txt) => { const a = document.createElement('a'); a.href = href; a.textContent = txt; a.style.color = 'var(--accent)'; return a; };
       if (serverUser.papel === 'admin') { b.appendChild(mk('admin.php', 'Admin')); b.appendChild(document.createTextNode(' · ')); }
       b.appendChild(mk('alterar-senha.php', 'Alterar senha'));
+      b.appendChild(document.createTextNode(' · '));
+      const sair = document.createElement('button');
+      sair.type = 'button'; sair.textContent = '⏻ Sair'; sair.title = 'Encerrar a sessão';
+      sair.style.cssText = 'padding:3px 9px;border-radius:6px;border:1px solid rgba(255,74,110,0.35);background:rgba(255,74,110,0.08);color:var(--red);font-size:11px;font-weight:600;cursor:pointer;';
+      sair.onclick = sairDoSistema;
+      b.appendChild(sair);
       b.style.display = 'inline-flex';
     }
   } catch(_) { /* sem servidor: modo autônomo */ }
+}
+
+/* Botão "Sair": avisa se houver gravação em andamento, encerra a sessão
+   no servidor (api/logout.php) e volta para a tela de login. */
+async function sairDoSistema() {
+  if (isRecording && !confirm('Há uma gravação em andamento. Sair mesmo assim? A gravação será perdida.')) return;
+  try { await fetch('api/logout.php', { method: 'POST', headers: { 'X-CSRF-Token': serverCsrf || '' } }); } catch(_) {}
+  location.href = 'login.php';
 }
 
 function svMsg(texto, ok) {
