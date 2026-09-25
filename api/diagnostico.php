@@ -7,9 +7,10 @@ declare(strict_types=1);
 header('Content-Type: text/html; charset=utf-8');
 
 $linhas = [];
-$ok = fn(string $t) => $linhas[] = ['ok', $t];
-$erro = fn(string $t) => $linhas[] = ['erro', $t];
-$info = fn(string $t) => $linhas[] = ['info', $t];
+// closures com "use (&$linhas)": arrow functions capturariam a lista por cópia e ela ficaria vazia
+$ok   = function (string $t) use (&$linhas): void { $linhas[] = ['ok', $t]; };
+$erro = function (string $t) use (&$linhas): void { $linhas[] = ['erro', $t]; };
+$info = function (string $t) use (&$linhas): void { $linhas[] = ['info', $t]; };
 
 $info('PHP ' . PHP_VERSION . ' · extensão pdo_mysql: ' . (extension_loaded('pdo_mysql') ? 'presente' : 'AUSENTE (ative no cPanel → Select PHP Version)'));
 
