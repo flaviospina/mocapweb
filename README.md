@@ -29,7 +29,9 @@ Sistema de captura de movimentos corporais e faciais 100% no navegador (webcam �
 - Painéis laterais (keypoints, ângulos, gráfico) atualizados a ~6 Hz em vez de a cada quadro
 - Malha facial processada a cada 2 quadros
 - Se ainda estiver lento: reduza o **máx. de pessoas**, desligue **Rosto**, ou use um navegador com aceleração de GPU ativada
-- No motor YOLO: em computadores **sem WebGPU** a análise roda na CPU (~2–6 fps); use "Resolução de análise" 320/416 px e o modelo **nano**. Com WebGPU (Chrome/Edge em Windows/macOS) roda a 20–60 fps mesmo com 20 pessoas. Os arquivos `.onnx` ficam na pasta `models/` (servidos junto com o `index.html`, sem CDN externo)
+- No motor YOLO: em computadores **sem WebGPU** a análise roda na CPU (~2–6 fps); use "Resolução de análise" 320/416 px e o modelo **nano**. Com WebGPU (Chrome/Edge em Windows/macOS) roda a 20–60 fps mesmo com 20 pessoas. O seletor **Processamento** (Automático / Placa de vídeo / Processador) força um modo; se a placa de vídeo travar, o sistema muda para CPU sozinho.
+- **Arquivos do YOLO servidos pelo próprio site** (sem depender de CDN): `models/yolov8n-pose.onnx` (13.486.313 bytes) e opcionalmente `models/yolov8s-pose.onnx` (46.912.414 bytes); `lib/ort/` com o ONNX Runtime 1.29.0 — `ort.webgpu.min.js`, `ort-wasm-simd-threaded.asyncify.mjs` e `ort-wasm-simd-threaded.asyncify.wasm` (25.749.873 bytes). Os `.htaccess` dessas pastas definem os tipos MIME corretos (`text/javascript` para `.mjs`, `application/wasm` para `.wasm`), obrigatórios para o navegador aceitar os módulos.
+- **Autoteste**: `yolo-teste.html` verifica passo a passo (WebGPU, arquivos e tamanhos, MIME, carregamento do motor, inferência na CPU e na GPU, Web Worker) e gera um relatório para copiar. Link "🔧 Testar o motor YOLO" no painel.
 
 ## Login, banco de dados e página administrativa (opcional)
 

@@ -1,0 +1,16 @@
+# ONNX Runtime Web 1.29.0 (motor do YOLO-pose), servido pelo próprio site.
+# Os tipos MIME abaixo são OBRIGATÓRIOS: o navegador recusa "import" de
+# módulo .mjs e o WebAssembly se o servidor mandar outro tipo.
+<IfModule mod_authz_core.c>
+  Require all granted
+</IfModule>
+AddType text/javascript .mjs .js
+AddType application/wasm .wasm
+<IfModule mod_headers.c>
+  <FilesMatch "\.(mjs|js|wasm)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+</IfModule>
+<IfModule mod_deflate.c>
+  SetEnvIfNoCase Request_URI \.wasm$ no-gzip
+</IfModule>

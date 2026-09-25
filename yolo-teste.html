@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Teste do motor YOLO — MoCap Web CECAPE</title>
+<style>
+  :root { --bg:#0a0c10; --surface2:#1a1f2b; --border:rgba(255,255,255,0.1); --accent:#00e5a0; --text:#e8eaf0; --text2:#8890a4; --red:#ff4a6e; --yellow:#ffc947; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:'Inter',system-ui,sans-serif; padding:28px; max-width:960px; margin:auto; line-height:1.6; }
+  h1 { color:var(--accent); font-size:20px; margin-bottom:4px; }
+  p.sub { color:var(--text2); font-size:13px; margin-bottom:18px; }
+  .l { padding:8px 12px; border-radius:8px; margin:6px 0; font-size:13px; word-break:break-word; }
+  .ok { background:rgba(0,229,160,.1); border:1px solid rgba(0,229,160,.3); }
+  .erro { background:rgba(255,74,110,.12); border:1px solid rgba(255,74,110,.35); color:#ffb3c1; }
+  .info { background:rgba(255,255,255,.05); border:1px solid var(--border); color:var(--text2); }
+  .aviso { background:rgba(255,201,71,.1); border:1px solid rgba(255,201,71,.35); color:var(--yellow); }
+  .btn { display:inline-block; margin:14px 8px 0 0; padding:9px 16px; border-radius:8px; border:1px solid var(--border); background:var(--surface2); color:var(--text); font-size:13px; font-weight:600; cursor:pointer; text-decoration:none; }
+  .btn.primary { background:var(--accent); color:#0a0c10; border:none; }
+  #resumo { margin-top:18px; padding:12px 14px; border-radius:8px; border:1px solid var(--border); background:var(--surface2); font-size:13px; }
+</style>
+</head>
+<body>
+<h1>🔧 Teste do motor YOLO-pose</h1>
+<p class="sub">Executa, passo a passo, tudo o que o sistema faz para carregar o YOLO e mostra onde falha. Não precisa de câmera nem de login. Ao terminar, clique em "Copiar relatório" e envie para a equipe de TI.</p>
+<div id="linhas"></div>
+<div id="resumo" style="display:none;"></div>
+<button class="btn primary" id="btnRodar" onclick="rodar()">▶ Executar teste</button>
+<button class="btn" id="btnCopiar" onclick="copiar()" style="display:none;">📋 Copiar relatório</button>
+<a class="btn" href="index.html">← Voltar ao sistema</a>
+
+<script>
+const L = document.getElementById('linhas'), relatorio = [];
+function linha(tipo, txt) {
+  const d = document.createElement('div'); d.className = 'l ' + tipo;
+  d.textContent = (tipo === 'ok' ? '✅ ' : tipo === 'erro' ? '❌ ' : tipo === 'aviso' ? '⚠️ ' : 'ℹ️ ') + txt;
+  L.appendChild(d); relatorio.push(d.textContent); window.scrollTo(0, document.body.scrollHeight);
+}
+const ok = t => linha('ok', t), erro = t => linha('erro', t), info = t => linha('info', t), aviso = t => linha('aviso', t);
+const comTempo = (p, ms, oque) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(oque + ' demorou mais de ' + Math.round(ms/1000) + ' s')), ms))]);
+const MB = n => (n/1048576).toFixed(1) + ' MB';
+const ESPERADO = { 'models/yolov8n-pose.onnx': 13486313, 'models/yolov8s-pose.onnx': 46912414, 'lib/ort/ort.webgpu.min.js': 66416, 'lib/ort/ort-wasm-simd-threaded.asyncify.mjs': 51407, 'lib/ort/ort-wasm-simd-threaded.asyncify.wasm': 25749873 };
+
+async function checarArquivo(rel, mimeEsperado) {
+  const url = new URL(rel, location.href).href;
+  try {
+    const r = await fetch(url, { cache: 'no-store' });
+    const tipo = r.headers.get('content-type') || '(sem content-type)';
+    if (!r.ok) { erro(`${rel}: o servidor respondeu ${r.status}${r.status === 404 ? ' — arquivo NÃO está no servidor' : ''}`); return null; }
+    const buf = await r.arrayBuffer();
+    const esp = ESPERADO[rel];
+    if (esp && buf.byteLength !== esp) { erro(`${rel}: ${buf.byteLength.toLocaleString('pt-BR')} bytes, mas o correto são ${esp.toLocaleString('pt-BR')} — arquivo incompleto/corrompido, reenvie`); return null; }
+    let extra = '';
+    if (mimeEsperado && !tipo.toLowerCase().includes(mimeEsperado)) extra = ` — ATENÇÃO: content-type "${tipo}" (esperado ${mimeEsperado}); confira o .htaccess da pasta`;
+    (extra ? aviso : ok)(`${rel}: OK, ${MB(buf.byteLength)}, tipo ${tipo}${extra}`);
+    return buf;
+  } catch(e) { erro(`${rel}: falha de rede (${e.message})`); return null; }
+}
+
+async function rodar() {
+  document.getElementById('btnRodar').disabled = true; L.innerHTML = ''; relatorio.length = 0;
+  info(`Navegador: ${navigator.userAgent}`);
+  info(`Página: ${location.href} · HTTPS: ${location.protocol === 'https:' ? 'sim' : 'NÃO (WebGPU exige https)'} · núcleos: ${navigator.hardwareConcurrency || '?'} · crossOriginIsolated: ${self.crossOriginIsolated}`);
+  info(`Recursos: Worker ${!!window.Worker} · OffscreenCanvas ${!!window.OffscreenCanvas} · createImageBitmap ${!!window.createImageBitmap} · WebAssembly ${!!window.WebAssembly}`);
+
+  // 1) WebGPU
+  let gpuOk = false;
+  if (!navigator.gpu) aviso('WebGPU: navigator.gpu ausente — o YOLO vai usar o processador (CPU). Chrome/Edge 113+ no Windows/macOS expõem WebGPU.');
+  else {
+    try {
+      const a = await comTempo(navigator.gpu.requestAdapter(), 15000, 'requestAdapter');
+      if (!a) aviso('WebGPU: presente, mas nenhum adaptador de GPU disponível (driver/bloqueio) — usará CPU.');
+      else { const i = a.info || {}; ok(`WebGPU: adaptador ${i.vendor || ''} ${i.architecture || ''} ${i.description || ''}`.trim()); gpuOk = true; }
+    } catch(e) { aviso('WebGPU: falhou ao obter adaptador (' + e.message + ') — usará CPU.'); }
+  }
+
+  // 2) arquivos do motor e do modelo
+  const js = await checarArquivo('lib/ort/ort.webgpu.min.js', 'javascript');
+  const mjs = await checarArquivo('lib/ort/ort-wasm-simd-threaded.asyncify.mjs', 'javascript');
+  const wasm = await checarArquivo('lib/ort/ort-wasm-simd-threaded.asyncify.wasm', 'wasm');
+  const modelo = await checarArquivo('models/yolov8n-pose.onnx', null);
+  await checarArquivo('models/yolov8s-pose.onnx', null);
+  if (!modelo) { erro('Sem o modelo não dá para continuar. Envie a pasta models/ e rode de novo.'); fim(); return; }
+
+  // 3) carregar o ONNX Runtime na página (local, depois CDN)
+  const bases = [new URL('lib/ort/', location.href).href, 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.29.0/dist/'];
+  let base = '';
+  for (const b of bases) {
+    try {
+      await comTempo(new Promise((res, rej) => { const s = document.createElement('script'); s.src = b + 'ort.webgpu.min.js'; s.onload = res; s.onerror = () => rej(new Error('não carregou')); document.head.appendChild(s); }), 30000, 'carregar ort.webgpu.min.js');
+      if (!window.ort) throw new Error('script carregou mas não definiu "ort"');
+      ok(`ONNX Runtime carregado de ${b} (versão ${ort.env.versions ? ort.env.versions.web || '' : ''})`); base = b; break;
+    } catch(e) { aviso(`ONNX Runtime não carregou de ${b}: ${e.message}`); }
+  }
+  if (!base) { erro('O motor ONNX Runtime não carregou de nenhum endereço. Confira lib/ort/ (3 arquivos) e o .htaccess.'); fim(); return; }
+  ort.env.wasm.wasmPaths = base; ort.env.wasm.numThreads = 1;
+
+  // 4) sessão + inferência de teste em cada modo
+  const bytes = new Uint8Array(modelo);
+  const S = 320;
+  for (const ep of (gpuOk ? ['webgpu', 'wasm'] : ['wasm'])) {
+    const tag = ep === 'webgpu' ? 'placa de vídeo (WebGPU)' : 'processador (CPU/WASM)';
+    let sess = null;
+    try {
+      const t0 = performance.now();
+      sess = await comTempo(ort.InferenceSession.create(bytes, { executionProviders:[ep], graphOptimizationLevel:'all' }), 90000, 'preparar o modelo');
+      const t1 = performance.now();
+      const feeds = { [sess.inputNames[0]]: new ort.Tensor('float32', new Float32Array(3*S*S), [1,3,S,S]) };
+      await comTempo(sess.run(feeds), 90000, 'primeira inferência');
+      const t2 = performance.now();
+      const out = await sess.run(feeds); const t3 = performance.now();
+      const o = out[sess.outputNames[0]];
+      if (!o || o.dims[1] !== 56) throw new Error('saída inesperada ' + JSON.stringify(o && o.dims));
+      ok(`${tag}: FUNCIONA — preparo ${Math.round(t1-t0)} ms · 1ª inferência ${Math.round(t2-t1)} ms · 2ª inferência ${Math.round(t3-t2)} ms a ${S} px (≈ ${(1000/Math.max(1,t3-t2)).toFixed(1)} quadros/s)`);
+    } catch(e) { (ep === 'webgpu' ? aviso : erro)(`${tag}: FALHOU — ${e.message}`); }
+    try { if (sess) await sess.release(); } catch(_) {}
+  }
+
+  // 5) o mesmo dentro de um Web Worker (é assim que o sistema roda)
+  try {
+    const src = `self.onmessage = async e => { try { importScripts(e.data.base + 'ort.webgpu.min.js'); ort.env.wasm.wasmPaths = e.data.base; ort.env.wasm.numThreads = 1;
+      const s = await ort.InferenceSession.create(new Uint8Array(e.data.modelo), { executionProviders:['wasm'] });
+      const S = 320; const out = await s.run({ [s.inputNames[0]]: new ort.Tensor('float32', new Float32Array(3*S*S), [1,3,S,S]) });
+      postMessage({ ok: true, dims: out[s.outputNames[0]].dims, gpu: !!self.navigator.gpu }); } catch(err) { postMessage({ ok:false, erro: String(err && err.message || err) }); } };`;
+    const w = new Worker(URL.createObjectURL(new Blob([src], { type:'text/javascript' })));
+    const copia = modelo.slice(0);
+    const r = await comTempo(new Promise((res, rej) => { w.onmessage = ev => res(ev.data); w.onerror = ev => rej(new Error(ev.message)); w.postMessage({ base, modelo: copia }, [copia]); }), 120000, 'teste no worker');
+    w.terminate();
+    if (r.ok) ok(`Web Worker (CPU): FUNCIONA — saída ${JSON.stringify(r.dims)} · WebGPU visível no worker: ${r.gpu ? 'sim' : 'não'}`);
+    else erro('Web Worker (CPU): FALHOU — ' + r.erro);
+  } catch(e) { erro('Web Worker: FALHOU — ' + e.message); }
+  fim();
+}
+function fim() {
+  const erros = relatorio.filter(l => l.startsWith('❌')).length, avisos = relatorio.filter(l => l.startsWith('⚠️')).length;
+  const r = document.getElementById('resumo'); r.style.display = 'block';
+  r.innerHTML = erros ? `<b style="color:var(--red)">${erros} erro(s)</b> encontrado(s) — veja as linhas em vermelho.` : `<b style="color:var(--accent)">Tudo certo!</b> O motor YOLO funciona neste computador${avisos ? ' (com ' + avisos + ' aviso(s) — normalmente sobre a placa de vídeo; o sistema usa o processador nesses casos)' : ''}.`;
+  document.getElementById('btnCopiar').style.display = 'inline-block';
+  document.getElementById('btnRodar').disabled = false;
+}
+function copiar() {
+  const txt = 'Relatório do teste YOLO — ' + new Date().toLocaleString('pt-BR') + '\n' + relatorio.join('\n');
+  navigator.clipboard.writeText(txt).then(() => alert('Relatório copiado. Cole na mensagem para a equipe de TI.')).catch(() => prompt('Copie o texto abaixo:', txt));
+}
+</script>
+</body>
+</html>
